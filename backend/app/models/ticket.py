@@ -1,0 +1,64 @@
+import enum
+from datetime import datetime, timezone
+
+from sqlalchemy import ForeignKey, String, Numeric, Integer, Enum, DateTime
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.core.database import Base
+
+
+class OrderStatus(str, enum.Enum):
+    pending = "pending"
+    completed = "completed"
+    failed = "failed"
+    refunded = "refunded"
+
+
+class TicketType(Base):
+    __tablename__ = "ticket_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    price: Mapped[float] = mapped_column(Numeric(10, 2))
+    quantity_total: Mapped[int] = mapped_column(Integer)
+    quantity_sold: Mapped[int] = mapped_column(Integer, default=0)
+    tier_order: Mapped[int] = mapped_column(Integer, default=0)  # 0 = first tier, 1 = second, etc.
+
+    event: Mapped["Event"] = relationship(back_populates="ticket_types")
+    tickets: Mapped[list["Ticket"]] = relationship(back_populates="ticket_type")
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    total: Mapped[float] = mapped_column(Numeric(10, 2))
+    status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.pending)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    user: Mapped["User"] = relationship(back_populates="orders")
+    event: Mapped["Event"] = relationship(back_populates="orders")
+    tickets: Mapped[list["Ticket"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+
+
+class Ticket(Base):
+    __tablename__ = "tickets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
+    ticket_type_id: Mapped[int] = mapped_column(ForeignKey("ticket_types.id", ondelete="CASCADE"))
+    qr_code_token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    order: Mapped["Order"] = relationship(back_populates="tickets")
+    ticket_type: Mapped["TicketType"] = relationship(back_populates="tickets")
+
+
+from app.models.event import Event  # noqa: E402
+from app.models.user import User  # noqa: E402

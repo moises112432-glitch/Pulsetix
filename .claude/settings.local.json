@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(export PATH=\"/usr/local/bin:$PATH\")",
+      "Bash(PYTHONPATH=/Users/moisesherrmann/Tickets/backend .venv/bin/python -m alembic upgrade head)",
+      "Bash(PYTHONPATH=/Users/moisesherrmann/Tickets/backend alembic upgrade head)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(docker compose:*)",
+      "Bash(/usr/local/bin/docker ps:*)",
+      "Bash(/opt/homebrew/bin/docker ps:*)",
+      "Bash(\"$HOME/.docker/bin/docker\" ps:*)",
+      "Bash(\"$HOME/.docker/bin/docker\" compose:*)",
+      "Read(//Applications/Docker.app/Contents/Resources/bin/**)",
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(/usr/local/bin/docker compose:*)",
+      "Bash(pip install:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(PYTHONPATH=. alembic upgrade head)",
+      "WebSearch",
+      "Bash(/usr/local/bin/docker start:*)",
+      "Bash(pip list:*)",
+      "Bash(grep -r localhost /Users/moisesherrmann/Tickets --include=*.py --include=*.ts --include=*.tsx --include=*.json --include=*.md)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
