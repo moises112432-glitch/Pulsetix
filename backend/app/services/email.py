@@ -280,3 +280,81 @@ async def send_promoter_invitation(
         "subject": f"You're invited to promote {event_title} 🔗",
         "html": html,
     })
+
+
+async def send_waitlist_notification(
+    to_email: str,
+    name: str,
+    event_title: str,
+    event_url: str,
+) -> None:
+    """Notify waitlisted user that tickets are available."""
+    if not settings.RESEND_API_KEY:
+        return
+
+    resend.api_key = settings.RESEND_API_KEY
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 520px; margin: 0 auto; padding: 40px 20px;">
+
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 32px;">
+          <div style="display: inline-block; background: #7c3aed; color: white; width: 40px; height: 40px; line-height: 40px; border-radius: 10px; font-weight: bold; font-size: 18px;">P</div>
+          <p style="margin: 8px 0 0; font-size: 14px; color: #9ca3af;">PulseTix</p>
+        </div>
+
+        <!-- Card -->
+        <div style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+          <!-- Green banner -->
+          <div style="background: linear-gradient(135deg, #059669, #047857); padding: 32px 24px; text-align: center;">
+            <p style="margin: 0 0 4px; font-size: 13px; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px;">Tickets Available</p>
+            <h1 style="margin: 0; color: white; font-size: 22px;">{event_title}</h1>
+          </div>
+
+          <!-- Body -->
+          <div style="padding: 24px;">
+            <p style="margin: 0 0 20px; color: #374151; font-size: 15px; line-height: 1.6;">
+              Hey {name}! Great news — tickets are now available for <strong>{event_title}</strong>!
+            </p>
+
+            <p style="margin: 0 0 24px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+              You were on the waitlist, so we wanted to let you know first. Grab your tickets before they sell out again!
+            </p>
+
+            <!-- CTA Button -->
+            <div style="text-align: center; margin-bottom: 8px;">
+              <a href="{event_url}"
+                 style="display: inline-block; padding: 14px 32px; background: #7c3aed; color: white; border-radius: 12px; text-decoration: none; font-size: 15px; font-weight: 600;">
+                Get Tickets Now
+              </a>
+            </div>
+          </div>
+
+          <!-- Footer inside card -->
+          <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #f3f4f6; text-align: center;">
+            <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+              Hurry — tickets are first come, first served!
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <p style="text-align: center; margin-top: 24px; font-size: 12px; color: #d1d5db;">
+          PulseTix &mdash; Create events that people love
+        </p>
+      </div>
+    </body>
+    </html>
+    """
+
+    resend.Emails.send({
+        "from": settings.FROM_EMAIL,
+        "to": [to_email],
+        "subject": f"Tickets available for {event_title}! 🎉",
+        "html": html,
+    })

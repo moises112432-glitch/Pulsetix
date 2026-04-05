@@ -31,11 +31,21 @@ function EventDetailContent() {
   const [promoterLink, setPromoterLink] = useState<string | null>(null);
   const [promoterLoading, setPromoterLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistName, setWaitlistName] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistResult, setWaitlistResult] = useState<{ position: number; message: string } | null>(null);
+  const [waitlistError, setWaitlistError] = useState("");
+  const [waitlistCount, setWaitlistCount] = useState(0);
 
   useEffect(() => {
     apiFetch<Event>(`/api/events/${params.id}`)
       .then((e) => {
         setEvent(e);
+        // Load waitlist count
+        apiFetch<{ count: number }>(`/api/waitlist/events/${e.id}/count`)
+          .then((d) => setWaitlistCount(d.count))
+          .catch(() => {});
         // Load follow status and follower count
         apiFetch<{ count: number }>(`/api/users/${e.organizer_id}/followers/count`)
           .then((d) => setFollowerCount(d.count))
@@ -95,6 +105,31 @@ function EventDetailContent() {
       navigator.clipboard.writeText(promoterLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  async function handleJoinWaitlist() {
+    if (!event || !waitlistEmail.trim() || !waitlistName.trim()) return;
+    setWaitlistSubmitting(true);
+    setWaitlistError("");
+    try {
+      const data = await apiFetch<{ position: number; message: string }>(
+        "/api/waitlist/join",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            event_id: event.id,
+            email: waitlistEmail,
+            name: waitlistName,
+          }),
+        }
+      );
+      setWaitlistResult(data);
+      setWaitlistCount((c) => Math.max(c, data.position));
+    } catch (err) {
+      setWaitlistError(err instanceof Error ? err.message : "Failed to join waitlist");
+    } finally {
+      setWaitlistSubmitting(false);
     }
   }
 
@@ -497,13 +532,68 @@ function EventDetailContent() {
             </div>
           )}
 
-          <button
-            onClick={handleCheckout}
-            disabled={!hasSelection || checkingOut}
-            className="mt-5 w-full rounded-xl bg-brand py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand/25 transition-all hover:bg-brand-dark hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
-          >
-            {checkingOut ? "Redirecting to checkout..." : "Get Tickets"}
-          </button>
+          {/* Check if all tiers sold out */}
+          {event.ticket_types.every((tt) => tt.quantity_sold >= tt.quantity_total) ? (
+            <div className="mt-5 border-t border-gray-100 pt-5">
+              {waitlistResult ? (
+                <div className="rounded-xl bg-green-50 p-4 text-center">
+                  <span className="text-2xl">🎉</span>
+                  <p className="mt-2 text-sm font-semibold text-green-800">{waitlistResult.message}</p>
+                  <p className="mt-1 text-xs text-green-600">
+                    Your position: <span className="font-bold">#{waitlistResult.position}</span>
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 rounded-xl bg-yellow-50 p-3 text-center">
+                    <p className="text-sm font-semibold text-yellow-800">This event is sold out</p>
+                    <p className="mt-0.5 text-xs text-yellow-600">
+                      Join the waitlist to be notified when tickets become available
+                    </p>
+                    {waitlistCount > 0 && (
+                      <p className="mt-1 text-xs text-yellow-500">
+                        {waitlistCount} {waitlistCount === 1 ? "person" : "people"} waiting
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="text"
+                      placeholder="Your name"
+                      value={waitlistName}
+                      onChange={(e) => setWaitlistName(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    />
+                    <input
+                      type="email"
+                      placeholder="Your email"
+                      value={waitlistEmail}
+                      onChange={(e) => setWaitlistEmail(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    />
+                    {waitlistError && (
+                      <p className="text-xs text-red-500">{waitlistError}</p>
+                    )}
+                    <button
+                      onClick={handleJoinWaitlist}
+                      disabled={waitlistSubmitting || !waitlistEmail.trim() || !waitlistName.trim()}
+                      className="w-full rounded-xl bg-yellow-500 py-3 text-sm font-semibold text-white shadow-lg shadow-yellow-500/25 transition-all hover:bg-yellow-600 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                    >
+                      {waitlistSubmitting ? "Joining..." : "Join Waitlist"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={handleCheckout}
+              disabled={!hasSelection || checkingOut}
+              className="mt-5 w-full rounded-xl bg-brand py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand/25 transition-all hover:bg-brand-dark hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+            >
+              {checkingOut ? "Redirecting to checkout..." : "Get Tickets"}
+            </button>
+          )}
         </div>
       </div>
     </div>

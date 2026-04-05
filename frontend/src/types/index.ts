@@ -120,6 +120,15 @@ export interface Attendee {
   transferred: boolean;
 }
 
+export interface WaitlistEntry {
+  id: number;
+  name: string;
+  email: string;
+  position: number;
+  joined_at: string;
+  notified: boolean;
+}
+
 export interface Commission {
   id: number;
   promoter_id: number;

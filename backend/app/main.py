@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, events, orders, promoters, promos, tickets, transfers, users, webhooks
+from app.api import auth, events, orders, promoters, promos, tickets, transfers, users, waitlist, webhooks
 from app.core.config import settings
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
@@ -33,6 +33,7 @@ app.include_router(promos.router)
 app.include_router(tickets.router)
 app.include_router(transfers.router)
 app.include_router(users.router)
+app.include_router(waitlist.router)
 app.include_router(webhooks.router)
 
 

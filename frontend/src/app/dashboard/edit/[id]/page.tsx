@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiFetch, API_BASE, imageUrl } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
-import type { Event, PromoCode, Promoter } from "@/types";
+import type { Event, PromoCode, Promoter, WaitlistEntry } from "@/types";
 
 function toLocalDatetime(iso: string) {
   const d = new Date(iso);
@@ -42,6 +42,9 @@ export default function EditEventPage() {
   const [inviteDiscount, setInviteDiscount] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [notifying, setNotifying] = useState(false);
+  const [notifyResult, setNotifyResult] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -49,8 +52,9 @@ export default function EditEventPage() {
       apiFetch<Event>(`/api/events/${params.id}`),
       apiFetch<PromoCode[]>(`/api/promos/events/${params.id}`).catch(() => []),
       apiFetch<Promoter[]>(`/api/promoters/events/${params.id}`).catch(() => []),
+      apiFetch<WaitlistEntry[]>(`/api/waitlist/events/${params.id}`).catch(() => []),
     ])
-      .then(([data, promosData, promotersData]) => {
+      .then(([data, promosData, promotersData, waitlistData]) => {
         setEvent(data);
         setTitle(data.title);
         setDescription(data.description || "");
@@ -65,6 +69,7 @@ export default function EditEventPage() {
         setAffiliatePercent(data.affiliate_commission_percent?.toString() || "10");
         setPromos(promosData);
         setPromoters(promotersData);
+        setWaitlist(waitlistData);
       })
       .finally(() => setLoading(false));
   }, [params.id]);
@@ -671,6 +676,76 @@ export default function EditEventPage() {
                   <span className="text-xs text-gray-400">
                     {p.total_sales} sales · ${p.total_revenue.toFixed(0)} rev
                   </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Waitlist */}
+        {waitlist.length > 0 && (
+          <div className="rounded-xl border border-yellow-200 bg-yellow-50/50 p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Waitlist ({waitlist.length})
+                </label>
+                <p className="text-xs text-gray-400">
+                  People waiting for tickets to become available
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={notifying || waitlist.every((w) => w.notified)}
+                onClick={async () => {
+                  if (!event) return;
+                  setNotifying(true);
+                  setNotifyResult("");
+                  try {
+                    const data = await apiFetch<{ notified: number; message: string }>(
+                      `/api/waitlist/events/${event.id}/notify`,
+                      { method: "POST" }
+                    );
+                    setNotifyResult(data.message);
+                    // Refresh waitlist
+                    const updated = await apiFetch<WaitlistEntry[]>(`/api/waitlist/events/${event.id}`);
+                    setWaitlist(updated);
+                  } catch {
+                    setNotifyResult("Failed to send notifications");
+                  } finally {
+                    setNotifying(false);
+                  }
+                }}
+                className="rounded-lg bg-yellow-500 px-4 py-1.5 text-xs font-medium text-white hover:bg-yellow-600 disabled:opacity-50"
+              >
+                {notifying ? "Sending..." : waitlist.every((w) => w.notified) ? "All Notified" : "Notify All"}
+              </button>
+            </div>
+            {notifyResult && (
+              <p className="mb-3 text-xs font-medium text-green-600">{notifyResult}</p>
+            )}
+            <div className="flex flex-col gap-2">
+              {waitlist.map((w) => (
+                <div
+                  key={w.id}
+                  className="flex items-center justify-between rounded-lg border border-yellow-100 bg-white px-3 py-2"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{w.name}</p>
+                    <p className="text-xs text-gray-400">{w.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">#{w.position}</span>
+                    {w.notified ? (
+                      <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-600">
+                        Notified
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-bold text-yellow-600">
+                        Waiting
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
