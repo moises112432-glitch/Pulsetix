@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch, API_BASE } from "@/lib/api";
-import type { Order } from "@/types";
+import type { Order, PromoterSignup } from "@/types";
 
 interface FollowedOrganizer {
   id: number;
@@ -15,14 +15,39 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [following, setFollowing] = useState<FollowedOrganizer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [shareEarn, setShareEarn] = useState<{ url: string; percent: number } | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get("success");
+    const orderId = params.get("order_id");
+
     Promise.all([
       apiFetch<Order[]>("/api/orders/").then(setOrders),
       apiFetch<FollowedOrganizer[]>("/api/users/me/following")
         .then(setFollowing)
         .catch(() => {}),
-    ]).finally(() => setLoading(false));
+    ]).then(async () => {
+      // After a successful purchase, check if event is in public affiliate mode
+      if (success === "true" && orderId) {
+        try {
+          const order = await apiFetch<{ event_id: number }>(`/api/orders/${orderId}`);
+          const event = await apiFetch<{ affiliate_mode: string; affiliate_commission_percent: number | null }>(
+            `/api/events/${order.event_id}`
+          );
+          if (event.affiliate_mode === "public" && event.affiliate_commission_percent) {
+            const promo = await apiFetch<PromoterSignup>(
+              `/api/promoters/events/${order.event_id}/signup`,
+              { method: "POST" }
+            );
+            setShareEarn({ url: promo.referral_url, percent: event.affiliate_commission_percent });
+          }
+        } catch {}
+        // Clean up URL
+        window.history.replaceState({}, "", "/checkout");
+      }
+    }).finally(() => setLoading(false));
   }, []);
 
   async function handleUnfollow(userId: number) {
@@ -46,6 +71,33 @@ export default function OrdersPage() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">My Tickets</h1>
         <p className="mt-1 text-gray-500">Your purchased tickets and orders</p>
       </div>
+
+      {/* Share & Earn Banner */}
+      {shareEarn && (
+        <div className="mb-6 rounded-2xl border border-purple-100 bg-gradient-to-r from-purple-50 to-brand-50 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-purple-900">Share & Earn {shareEarn.percent}%</h3>
+              <p className="mt-1 text-sm text-purple-600">
+                Share your link with friends and earn commission on every ticket they buy!
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(shareEarn.url);
+                setShareCopied(true);
+                setTimeout(() => setShareCopied(false), 2000);
+              }}
+              className="shrink-0 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:bg-purple-700"
+            >
+              {shareCopied ? "Copied!" : "Copy Referral Link"}
+            </button>
+          </div>
+          <div className="mt-3 rounded-lg bg-white px-3 py-2">
+            <p className="truncate font-mono text-xs text-purple-700">{shareEarn.url}</p>
+          </div>
+        </div>
+      )}
 
       {orders.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-gray-200 py-20">

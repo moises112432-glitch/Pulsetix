@@ -33,7 +33,7 @@ async def create_event(
         start_time=body.start_time,
         end_time=body.end_time,
         status=EventStatus.draft,
-        affiliate_enabled=body.affiliate_enabled,
+        affiliate_mode=body.affiliate_mode,
         affiliate_commission_percent=body.affiliate_commission_percent,
     )
     db.add(event)

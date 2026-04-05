@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.event import Event
+from app.models.event import AffiliateMode, Event
 from app.models.promoter import Commission, CommissionStatus, Promoter
 from app.models.ticket import Order, OrderStatus
 from app.models.user import User
@@ -17,6 +17,7 @@ from app.schemas.promoter import (
     CommissionPayoutRequest,
     CommissionResponse,
     PromoterDashboardResponse,
+    PromoterInviteRequest,
     PromoterResponse,
     PromoterSignupResponse,
 )
@@ -30,13 +31,14 @@ async def signup_as_promoter(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Public mode only: any user can sign up as a promoter."""
     event = await db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     if event.status != "published":
         raise HTTPException(status_code=400, detail="Event is not published")
-    if not event.affiliate_enabled:
-        raise HTTPException(status_code=400, detail="Affiliate program not enabled for this event")
+    if event.affiliate_mode != AffiliateMode.public:
+        raise HTTPException(status_code=400, detail="Public promoter signup is not available for this event")
     if event.organizer_id == current_user.id:
         raise HTTPException(status_code=400, detail="Organizers cannot promote their own events")
 
@@ -57,6 +59,7 @@ async def signup_as_promoter(
         user_id=current_user.id,
         event_id=event_id,
         referral_code=referral_code,
+        email=current_user.email,
     )
     db.add(promoter)
     await db.commit()
@@ -67,6 +70,104 @@ async def signup_as_promoter(
         referral_code=promoter.referral_code,
         referral_url=f"{settings.FRONTEND_URL}/events/{event_id}?ref={referral_code}",
     )
+
+
+@router.post("/events/{event_id}/invite", response_model=PromoterResponse, status_code=status.HTTP_201_CREATED)
+async def invite_promoter(
+    event_id: int,
+    body: PromoterInviteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Private mode: organizer invites a specific promoter by email."""
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the organizer can invite promoters")
+    if event.affiliate_mode != AffiliateMode.private:
+        raise HTTPException(status_code=400, detail="Event must be in private affiliate mode to invite promoters")
+
+    # Check if this email is already a promoter for this event
+    existing = await db.execute(
+        select(Promoter).where(Promoter.email == body.email, Promoter.event_id == event_id)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="This email is already a promoter for this event")
+
+    # Check if user exists with this email
+    user_result = await db.execute(select(User).where(User.email == body.email))
+    invited_user = user_result.scalar_one_or_none()
+
+    referral_code = secrets.token_hex(4)
+
+    # Validate personal promo code uniqueness if provided
+    personal_code = body.personal_promo_code.strip().upper() if body.personal_promo_code else None
+    if personal_code:
+        existing_code = await db.execute(
+            select(Promoter).where(Promoter.personal_promo_code == personal_code)
+        )
+        if existing_code.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="This promo code is already in use")
+
+    promoter = Promoter(
+        user_id=invited_user.id if invited_user else None,
+        event_id=event_id,
+        referral_code=referral_code,
+        personal_promo_code=personal_code,
+        promo_code_discount_percent=body.promo_code_discount_percent,
+        email=body.email,
+        invited_by=current_user.id,
+    )
+    db.add(promoter)
+    await db.commit()
+    await db.refresh(promoter)
+
+    # Send invitation email
+    try:
+        from app.services.email import send_promoter_invitation
+        await send_promoter_invitation(
+            to_email=body.email,
+            organizer_name=current_user.name,
+            event_title=event.title,
+            referral_url=f"{settings.FRONTEND_URL}/events/{event_id}?ref={referral_code}",
+            personal_promo_code=personal_code,
+            commission_percent=float(event.affiliate_commission_percent or 0),
+        )
+    except Exception as e:
+        print(f"Promoter invitation email failed: {e}")
+
+    return PromoterResponse(
+        id=promoter.id,
+        user_id=promoter.user_id,
+        user_name=invited_user.name if invited_user else None,
+        email=promoter.email,
+        event_id=promoter.event_id,
+        referral_code=promoter.referral_code,
+        personal_promo_code=promoter.personal_promo_code,
+        promo_code_discount_percent=float(promoter.promo_code_discount_percent) if promoter.promo_code_discount_percent else None,
+        created_at=promoter.created_at,
+    )
+
+
+@router.delete("/events/{event_id}/promoters/{promoter_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_promoter(
+    event_id: int,
+    promoter_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Organizer removes a promoter from their event."""
+    event = await db.get(Event, event_id)
+    if not event or event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    promoter = await db.get(Promoter, promoter_id)
+    if not promoter or promoter.event_id != event_id:
+        raise HTTPException(status_code=404, detail="Promoter not found")
+
+    await db.delete(promoter)
+    await db.commit()
 
 
 @router.get("/events/{event_id}", response_model=list[PromoterResponse])
@@ -104,9 +205,12 @@ async def list_event_promoters(
         responses.append(PromoterResponse(
             id=p.id,
             user_id=p.user_id,
-            user_name=p.user.name,
+            user_name=p.user.name if p.user else None,
+            email=p.email,
             event_id=p.event_id,
             referral_code=p.referral_code,
+            personal_promo_code=p.personal_promo_code,
+            promo_code_discount_percent=float(p.promo_code_discount_percent) if p.promo_code_discount_percent else None,
             created_at=p.created_at,
             total_sales=int(row[0]),
             total_revenue=float(row[1]),
@@ -155,6 +259,7 @@ async def my_promotions(
             event_title=p.event.title,
             referral_code=p.referral_code,
             referral_url=f"{settings.FRONTEND_URL}/events/{p.event_id}?ref={p.referral_code}",
+            personal_promo_code=p.personal_promo_code,
             commission_percent=float(p.event.affiliate_commission_percent or 0),
             total_sales=int(row[0]),
             total_revenue=float(row[1]),

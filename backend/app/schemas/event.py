@@ -28,7 +28,7 @@ class EventCreate(BaseModel):
     start_time: datetime
     end_time: datetime
     ticket_types: list[TicketTypeCreate] = []
-    affiliate_enabled: bool = False
+    affiliate_mode: str = "off"
     affiliate_commission_percent: float | None = None
 
 
@@ -38,7 +38,7 @@ class EventUpdate(BaseModel):
     location: str | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
-    affiliate_enabled: bool | None = None
+    affiliate_mode: str | None = None
     affiliate_commission_percent: float | None = None
 
 
@@ -53,7 +53,7 @@ class EventResponse(BaseModel):
     end_time: datetime
     cover_image: str | None
     status: str
-    affiliate_enabled: bool = False
+    affiliate_mode: str = "off"
     affiliate_commission_percent: float | None = None
     created_at: datetime
     ticket_types: list[TicketTypeResponse] = []
@@ -69,7 +69,7 @@ class EventListResponse(BaseModel):
     cover_image: str | None
     status: str
     organizer_id: int
-    affiliate_enabled: bool = False
+    affiliate_mode: str = "off"
     affiliate_commission_percent: float | None = None
 
     model_config = {"from_attributes": True}

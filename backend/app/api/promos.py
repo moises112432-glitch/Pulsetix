@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.event import Event
 from app.models.promo import PromoCode
+from app.models.promoter import Promoter
 from app.models.user import User
 from app.schemas.promo import (
     PromoCodeCreate,
@@ -125,6 +126,27 @@ async def validate_promo_code(
     promo = result.scalar_one_or_none()
 
     if not promo:
+        # Also check promoter personal promo codes
+        promoter_result = await db.execute(
+            select(Promoter).where(
+                Promoter.personal_promo_code == code,
+                Promoter.event_id == body.event_id,
+            )
+        )
+        promoter = promoter_result.scalar_one_or_none()
+        if promoter and promoter.promo_code_discount_percent:
+            return PromoCodeValidateResponse(
+                valid=True,
+                discount_percent=float(promoter.promo_code_discount_percent),
+                message=f"{float(promoter.promo_code_discount_percent):.0f}% discount applied!",
+            )
+        elif promoter:
+            # Promoter code exists but no discount — still valid for attribution
+            return PromoCodeValidateResponse(
+                valid=True,
+                discount_percent=0,
+                message="Promo code applied!",
+            )
         return PromoCodeValidateResponse(valid=False, message="Invalid promo code")
 
     if not promo.active:

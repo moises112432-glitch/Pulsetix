@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiFetch, API_BASE, imageUrl } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
-import type { Event, PromoCode } from "@/types";
+import type { Event, PromoCode, Promoter } from "@/types";
 
 function toLocalDatetime(iso: string) {
   const d = new Date(iso);
@@ -33,16 +33,23 @@ export default function EditEventPage() {
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [newPromo, setNewPromo] = useState({ code: "", discount: "10", maxUses: "" });
   const [promoError, setPromoError] = useState("");
-  const [affiliateEnabled, setAffiliateEnabled] = useState(false);
+  const [affiliateMode, setAffiliateMode] = useState<"off" | "public" | "private">("off");
   const [affiliatePercent, setAffiliatePercent] = useState("10");
+  const [promoters, setPromoters] = useState<Promoter[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePromoCode, setInvitePromoCode] = useState("");
+  const [inviteDiscount, setInviteDiscount] = useState("");
+  const [inviteError, setInviteError] = useState("");
+  const [inviting, setInviting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Promise.all([
       apiFetch<Event>(`/api/events/${params.id}`),
       apiFetch<PromoCode[]>(`/api/promos/events/${params.id}`).catch(() => []),
+      apiFetch<Promoter[]>(`/api/promoters/events/${params.id}`).catch(() => []),
     ])
-      .then(([data, promosData]) => {
+      .then(([data, promosData, promotersData]) => {
         setEvent(data);
         setTitle(data.title);
         setDescription(data.description || "");
@@ -52,9 +59,10 @@ export default function EditEventPage() {
         if (data.cover_image) {
           setCoverPreview(imageUrl(data.cover_image));
         }
-        setAffiliateEnabled(data.affiliate_enabled || false);
+        setAffiliateMode(data.affiliate_mode || "off");
         setAffiliatePercent(data.affiliate_commission_percent?.toString() || "10");
         setPromos(promosData);
+        setPromoters(promotersData);
       })
       .finally(() => setLoading(false));
   }, [params.id]);
@@ -83,8 +91,8 @@ export default function EditEventPage() {
           location: location || null,
           start_time: new Date(startTime).toISOString(),
           end_time: new Date(endTime).toISOString(),
-          affiliate_enabled: affiliateEnabled,
-          affiliate_commission_percent: affiliateEnabled ? parseFloat(affiliatePercent) : null,
+          affiliate_mode: affiliateMode,
+          affiliate_commission_percent: affiliateMode !== "off" ? parseFloat(affiliatePercent) : null,
         }),
       });
 
@@ -433,30 +441,41 @@ export default function EditEventPage() {
 
         {/* Affiliate Program */}
         <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Affiliate Program
-              </label>
-              <p className="text-xs text-gray-400">
-                Let promoters earn commission by sharing your event
-              </p>
+          <div>
+            <label className="text-sm font-medium text-gray-700">
+              Affiliate Program
+            </label>
+            <p className="mb-3 text-xs text-gray-400">
+              Let promoters earn commission by sharing your event
+            </p>
+            <div className="flex gap-2">
+              {(["off", "public", "private"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setAffiliateMode(mode)}
+                  className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
+                    affiliateMode === mode
+                      ? "bg-purple-600 text-white"
+                      : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {mode === "off" ? "Off" : mode === "public" ? "Public" : "Private"}
+                </button>
+              ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setAffiliateEnabled(!affiliateEnabled)}
-              className={`relative h-6 w-11 rounded-full transition-colors ${
-                affiliateEnabled ? "bg-purple-600" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                  affiliateEnabled ? "translate-x-5" : ""
-                }`}
-              />
-            </button>
+            {affiliateMode === "public" && (
+              <p className="mt-2 text-xs text-purple-600">
+                Anyone who buys a ticket automatically becomes a promoter and can share their link.
+              </p>
+            )}
+            {affiliateMode === "private" && (
+              <p className="mt-2 text-xs text-purple-600">
+                Only promoters you invite can earn commission. You can assign them personal promo codes.
+              </p>
+            )}
           </div>
-          {affiliateEnabled && (
+          {affiliateMode !== "off" && (
             <div className="mt-4">
               <label className="mb-1 block text-xs text-gray-500">
                 Commission Rate (%)
@@ -475,6 +494,155 @@ export default function EditEventPage() {
             </div>
           )}
         </div>
+
+        {/* Invite Promoters (Private mode) */}
+        {affiliateMode === "private" && (
+          <div className="rounded-xl border border-purple-100 bg-white p-5">
+            <label className="mb-3 block text-sm font-medium text-gray-700">
+              Invite Promoters
+            </label>
+
+            {/* Invite form */}
+            <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Email</label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="promoter@email.com"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Promo Code (optional)</label>
+                  <input
+                    type="text"
+                    value={invitePromoCode}
+                    onChange={(e) => setInvitePromoCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. JOHN20"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm uppercase focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Discount % (optional)</label>
+                  <input
+                    type="number"
+                    value={inviteDiscount}
+                    onChange={(e) => setInviteDiscount(e.target.value)}
+                    placeholder="e.g. 10"
+                    min="0"
+                    max="100"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                  />
+                </div>
+              </div>
+              {inviteError && <p className="mt-2 text-xs text-red-500">{inviteError}</p>}
+              <button
+                type="button"
+                disabled={inviting || !inviteEmail.trim()}
+                onClick={async () => {
+                  if (!event) return;
+                  setInviting(true);
+                  setInviteError("");
+                  try {
+                    await apiFetch(`/api/promoters/events/${event.id}/invite`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        email: inviteEmail,
+                        personal_promo_code: invitePromoCode || null,
+                        promo_code_discount_percent: inviteDiscount ? parseFloat(inviteDiscount) : null,
+                      }),
+                    });
+                    const data = await apiFetch<Promoter[]>(`/api/promoters/events/${event.id}`);
+                    setPromoters(data);
+                    setInviteEmail("");
+                    setInvitePromoCode("");
+                    setInviteDiscount("");
+                  } catch (err) {
+                    setInviteError(err instanceof Error ? err.message : "Failed to invite");
+                  } finally {
+                    setInviting(false);
+                  }
+                }}
+                className="mt-3 rounded-lg bg-purple-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              >
+                {inviting ? "Sending..." : "+ Invite Promoter"}
+              </button>
+            </div>
+
+            {/* Promoter list */}
+            {promoters.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {promoters.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                      <span className="text-sm font-medium text-gray-900">
+                        {p.user_name || p.email}
+                      </span>
+                      {p.personal_promo_code && (
+                        <span className="rounded-lg bg-purple-50 px-3 py-1 font-mono text-xs font-bold text-purple-600">
+                          {p.personal_promo_code}
+                        </span>
+                      )}
+                      {p.promo_code_discount_percent != null && p.promo_code_discount_percent > 0 && (
+                        <span className="text-xs text-green-600">
+                          {p.promo_code_discount_percent}% off
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400">
+                        {p.total_sales} sales · ${p.total_revenue.toFixed(0)} rev
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!event) return;
+                        await apiFetch(`/api/promoters/events/${event.id}/promoters/${p.id}`, { method: "DELETE" });
+                        setPromoters(promoters.filter((x) => x.id !== p.id));
+                      }}
+                      className="rounded-lg border border-red-100 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">
+                No promoters invited yet. Add one above.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Promoter list (Public mode - read only) */}
+        {affiliateMode === "public" && promoters.length > 0 && (
+          <div className="rounded-xl border border-purple-100 bg-white p-5">
+            <label className="mb-3 block text-sm font-medium text-gray-700">
+              Active Promoters ({promoters.length})
+            </label>
+            <div className="flex flex-col gap-2">
+              {promoters.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/50 p-3"
+                >
+                  <span className="text-sm font-medium text-gray-900">
+                    {p.user_name || p.email}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {p.total_sales} sales · ${p.total_revenue.toFixed(0)} rev
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">

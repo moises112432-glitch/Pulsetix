@@ -275,7 +275,7 @@ function EventDetailContent() {
           </div>
         )}
 
-        {event.affiliate_enabled && event.affiliate_commission_percent && (
+        {event.affiliate_mode === "public" && event.affiliate_commission_percent && (
           <div className="mt-6 rounded-2xl border border-purple-100 bg-purple-50 p-4">
             <div className="flex items-center justify-between">
               <div>

@@ -27,7 +27,7 @@ export interface Event {
   end_time: string;
   cover_image: string | null;
   status: string;
-  affiliate_enabled: boolean;
+  affiliate_mode: "off" | "public" | "private";
   affiliate_commission_percent: number | null;
   created_at: string;
   ticket_types: TicketType[];
@@ -41,7 +41,7 @@ export interface EventListItem {
   cover_image: string | null;
   status: string;
   organizer_id: number;
-  affiliate_enabled: boolean;
+  affiliate_mode: "off" | "public" | "private";
   affiliate_commission_percent: number | null;
 }
 
@@ -83,6 +83,7 @@ export interface PromoterDashboard {
   event_title: string;
   referral_code: string;
   referral_url: string;
+  personal_promo_code: string | null;
   commission_percent: number;
   total_sales: number;
   total_revenue: number;
@@ -92,10 +93,13 @@ export interface PromoterDashboard {
 
 export interface Promoter {
   id: number;
-  user_id: number;
-  user_name: string;
+  user_id: number | null;
+  user_name: string | null;
+  email: string | null;
   event_id: number;
   referral_code: string;
+  personal_promo_code: string | null;
+  promo_code_discount_percent: number | null;
   created_at: string;
   total_sales: number;
   total_revenue: number;

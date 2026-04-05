@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [createPromos, setCreatePromos] = useState<{ code: string; discount: string; maxUses: string }[]>([]);
-  const [affiliateEnabled, setAffiliateEnabled] = useState(false);
+  const [affiliateMode, setAffiliateMode] = useState<"off" | "public" | "private">("off");
   const [affiliatePercent, setAffiliatePercent] = useState("10");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -85,8 +85,8 @@ export default function DashboardPage() {
             quantity_total: parseInt(tier.qty),
             tier_order: i,
           })),
-          affiliate_enabled: affiliateEnabled,
-          affiliate_commission_percent: affiliateEnabled ? parseFloat(affiliatePercent) : null,
+          affiliate_mode: affiliateMode,
+          affiliate_commission_percent: affiliateMode !== "off" ? parseFloat(affiliatePercent) : null,
         }),
       });
 
@@ -128,7 +128,7 @@ export default function DashboardPage() {
       setCoverFile(null);
       setCoverPreview(null);
       setCreatePromos([]);
-      setAffiliateEnabled(false);
+      setAffiliateMode("off");
       setAffiliatePercent("10");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create event");
@@ -587,30 +587,41 @@ export default function DashboardPage() {
 
             {/* Affiliate Program */}
             <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">
-                    Affiliate Program
-                  </label>
-                  <p className="text-xs text-gray-400">
-                    Let promoters earn commission by sharing your event
-                  </p>
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Affiliate Program
+                </label>
+                <p className="mb-3 text-xs text-gray-400">
+                  Let promoters earn commission by sharing your event
+                </p>
+                <div className="flex gap-2">
+                  {(["off", "public", "private"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setAffiliateMode(mode)}
+                      className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
+                        affiliateMode === mode
+                          ? "bg-purple-600 text-white"
+                          : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {mode === "off" ? "Off" : mode === "public" ? "Public" : "Private"}
+                    </button>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setAffiliateEnabled(!affiliateEnabled)}
-                  className={`relative h-6 w-11 rounded-full transition-colors ${
-                    affiliateEnabled ? "bg-purple-600" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      affiliateEnabled ? "translate-x-5" : ""
-                    }`}
-                  />
-                </button>
+                {affiliateMode === "public" && (
+                  <p className="mt-2 text-xs text-purple-600">
+                    Anyone who buys a ticket automatically becomes a promoter and can share their link.
+                  </p>
+                )}
+                {affiliateMode === "private" && (
+                  <p className="mt-2 text-xs text-purple-600">
+                    Only promoters you invite can earn commission. You can assign them personal promo codes.
+                  </p>
+                )}
               </div>
-              {affiliateEnabled && (
+              {affiliateMode !== "off" && (
                 <div className="mt-4">
                   <label className="mb-1 block text-xs text-gray-500">
                     Commission Rate (%)
@@ -804,12 +815,12 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Promoter link if affiliate enabled */}
-                    {event.affiliate_enabled && (
+                    {event.affiliate_mode !== "off" && (
                       <div className="mt-4 flex items-center justify-between rounded-xl bg-purple-50 p-3">
                         <div className="flex items-center gap-2">
                           <span className="text-sm">🔗</span>
                           <span className="text-xs font-medium text-purple-700">
-                            Affiliate program active ({event.affiliate_commission_percent}% commission)
+                            Affiliate: {event.affiliate_mode} ({event.affiliate_commission_percent}% commission)
                           </span>
                         </div>
                         <Link

@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import ForeignKey, String, Numeric, Enum, DateTime, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Numeric, Enum, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -15,17 +15,20 @@ class CommissionStatus(str, enum.Enum):
 
 class Promoter(Base):
     __tablename__ = "promoters"
-    __table_args__ = (UniqueConstraint("user_id", "event_id", name="uq_promoter_user_event"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
     referral_code: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    personal_promo_code: Mapped[str | None] = mapped_column(String(50), unique=True, index=True)
+    promo_code_discount_percent: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    email: Mapped[str | None] = mapped_column(String(255), index=True)
+    invited_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User | None"] = relationship(foreign_keys=[user_id])
     event: Mapped["Event"] = relationship()
     commissions: Mapped[list["Commission"]] = relationship(back_populates="promoter", cascade="all, delete-orphan")
 

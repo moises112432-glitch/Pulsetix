@@ -37,8 +37,10 @@ async def create_checkout(
     # Validate promo code if provided
     discount_percent = 0.0
     promo: PromoCode | None = None
+    promoter_from_promo: Promoter | None = None
     if body.promo_code:
         code = body.promo_code.strip().upper()
+        # First check regular promo codes
         promo_result = await db.execute(
             select(PromoCode).where(
                 PromoCode.event_id == event.id,
@@ -46,15 +48,35 @@ async def create_checkout(
             )
         )
         promo = promo_result.scalar_one_or_none()
-        if not promo or not promo.active:
-            raise HTTPException(status_code=400, detail="Invalid or inactive promo code")
-        if promo.max_uses and promo.times_used >= promo.max_uses:
-            raise HTTPException(status_code=400, detail="This promo code has been fully redeemed")
-        discount_percent = float(promo.discount_percent)
+        if promo:
+            if not promo.active:
+                raise HTTPException(status_code=400, detail="Invalid or inactive promo code")
+            if promo.max_uses and promo.times_used >= promo.max_uses:
+                raise HTTPException(status_code=400, detail="This promo code has been fully redeemed")
+            discount_percent = float(promo.discount_percent)
+        else:
+            # Check promoter personal promo codes
+            promoter_promo_result = await db.execute(
+                select(Promoter).where(
+                    Promoter.personal_promo_code == code,
+                    Promoter.event_id == event.id,
+                )
+            )
+            promoter_from_promo = promoter_promo_result.scalar_one_or_none()
+            if promoter_from_promo:
+                if promoter_from_promo.promo_code_discount_percent:
+                    discount_percent = float(promoter_from_promo.promo_code_discount_percent)
+            else:
+                raise HTTPException(status_code=400, detail="Invalid promo code")
 
     # Resolve referral code if provided
     promoter: Promoter | None = None
-    if body.ref:
+    if promoter_from_promo:
+        # Promoter personal promo code also attributes the sale
+        promoter = promoter_from_promo
+        if promoter.user_id == current_user.id:
+            promoter = None
+    elif body.ref:
         ref_result = await db.execute(
             select(Promoter).where(Promoter.referral_code == body.ref, Promoter.event_id == event.id)
         )
