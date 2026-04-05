@@ -54,26 +54,43 @@ async def create_connect_account(
     if current_user.role not in (UserRole.organizer, UserRole.admin):
         raise HTTPException(status_code=403, detail="Must be an organizer")
 
-    # Create account if user doesn't have one yet
-    if not current_user.stripe_account_id:
-        account = stripe.Account.create(
-            type="express",
-            email=current_user.email,
-            metadata={"user_id": str(current_user.id)},
+    try:
+        # If user has an old/invalid account ID, verify it still works
+        if current_user.stripe_account_id:
+            try:
+                stripe.Account.retrieve(current_user.stripe_account_id)
+            except stripe.error.InvalidRequestError:
+                # Old account ID is invalid (e.g. test mode ID with live key), clear it
+                current_user.stripe_account_id = None
+                current_user.stripe_onboarding_complete = False
+                await db.commit()
+
+        # Create account if user doesn't have one yet
+        if not current_user.stripe_account_id:
+            account = stripe.Account.create(
+                type="express",
+                email=current_user.email,
+                metadata={"user_id": str(current_user.id)},
+            )
+            current_user.stripe_account_id = account.id
+            current_user.stripe_onboarding_complete = False
+            await db.commit()
+            await db.refresh(current_user)
+
+        # Generate onboarding link
+        link = stripe.AccountLink.create(
+            account=current_user.stripe_account_id,
+            refresh_url=f"{settings.FRONTEND_URL}/dashboard?stripe=refresh",
+            return_url=f"{settings.FRONTEND_URL}/dashboard?stripe=complete",
+            type="account_onboarding",
         )
-        current_user.stripe_account_id = account.id
-        await db.commit()
-        await db.refresh(current_user)
 
-    # Generate onboarding link
-    link = stripe.AccountLink.create(
-        account=current_user.stripe_account_id,
-        refresh_url=f"{settings.FRONTEND_URL}/dashboard?stripe=refresh",
-        return_url=f"{settings.FRONTEND_URL}/dashboard?stripe=complete",
-        type="account_onboarding",
-    )
+        return {"url": link.url}
 
-    return {"url": link.url}
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 
 @router.get("/me/connect-status")
@@ -83,9 +100,16 @@ async def connect_status(
 ):
     """Check if the organizer's Stripe account is fully onboarded."""
     if not current_user.stripe_account_id:
-        return {"connected": False, "details_submitted": False}
+        return {"connected": False, "details_submitted": False, "charges_enabled": False}
 
-    account = stripe.Account.retrieve(current_user.stripe_account_id)
+    try:
+        account = stripe.Account.retrieve(current_user.stripe_account_id)
+    except stripe.error.InvalidRequestError:
+        # Old/invalid account ID — clear it
+        current_user.stripe_account_id = None
+        current_user.stripe_onboarding_complete = False
+        await db.commit()
+        return {"connected": False, "details_submitted": False, "charges_enabled": False}
 
     # Update our record if onboarding just completed
     if account.details_submitted and not current_user.stripe_onboarding_complete:
