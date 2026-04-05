@@ -3,8 +3,24 @@ import Nav from "@/components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PulseTix",
-  description: "Create events, sell tickets, bring people together.",
+  title: "PulseTix — Create events that people love",
+  description:
+    "Sell tickets, manage check-ins with QR codes, and grow your audience. The modern event ticketing platform.",
+  metadataBase: new URL("https://pulsetix.net"),
+  openGraph: {
+    title: "PulseTix — Create events that people love",
+    description:
+      "Sell tickets, manage check-ins with QR codes, and grow your audience. The modern event ticketing platform.",
+    type: "website",
+    url: "https://pulsetix.net",
+    siteName: "PulseTix",
+  },
+  twitter: {
+    card: "summary",
+    title: "PulseTix — Create events that people love",
+    description:
+      "Sell tickets, manage check-ins with QR codes, and grow your audience. The modern event ticketing platform.",
+  },
 };
 
 export default function RootLayout({
