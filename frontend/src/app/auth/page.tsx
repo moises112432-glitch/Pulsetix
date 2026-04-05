@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import GoogleSignIn from "@/components/GoogleSignIn";
 
 export default function AuthPage() {
+  return (
+    <Suspense>
+      <AuthContent />
+    </Suspense>
+  );
+}
+
+function AuthContent() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
   const [isLogin, setIsLogin] = useState(true);

@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { apiFetch, imageUrl } from "@/lib/api";
 import type { Event, PromoterSignup } from "@/types";
 
 export default function EventDetailPage() {
+  return (
+    <Suspense>
+      <EventDetailContent />
+    </Suspense>
+  );
+}
+
+function EventDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const ref = searchParams.get("ref");
