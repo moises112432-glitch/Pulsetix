@@ -38,6 +38,7 @@ export default function DashboardPage() {
   const [expandedStats, setExpandedStats] = useState<number | null>(null);
   const [stats, setStats] = useState<Record<number, EventStats>>({});
   const [connectingStripe, setConnectingStripe] = useState(false);
+  const [stripeError, setStripeError] = useState("");
   const [stripeStatus, setStripeStatus] = useState<{ connected: boolean; details_submitted: boolean; charges_enabled: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -142,13 +143,14 @@ export default function DashboardPage() {
 
   async function handleConnectStripe() {
     setConnectingStripe(true);
+    setStripeError("");
     try {
       const data = await apiFetch<{ url: string }>("/api/users/me/connect-stripe", {
         method: "POST",
       });
       window.location.href = data.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to connect Stripe");
+      setStripeError(err instanceof Error ? err.message : "Failed to connect Stripe");
       setConnectingStripe(false);
     }
   }
@@ -259,6 +261,11 @@ export default function DashboardPage() {
               {connectingStripe ? "Redirecting..." : "Connect Stripe"}
             </button>
           </div>
+          {stripeError && (
+            <div className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+              {stripeError}
+            </div>
+          )}
         </div>
       )}
 
