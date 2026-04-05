@@ -11,9 +11,15 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 
 app = FastAPI(title="PulseTix API", version="0.1.0", redirect_slashes=False)
 
+origins = [settings.FRONTEND_URL]
+if settings.FRONTEND_URL.startswith("https://"):
+    www = settings.FRONTEND_URL.replace("https://", "https://www.", 1)
+    if www not in origins:
+        origins.append(www)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
