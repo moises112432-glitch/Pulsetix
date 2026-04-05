@@ -336,6 +336,25 @@ export default function EditEventPage() {
           <p className="mt-2 text-xs text-gray-400">
             Ticket tiers cannot be edited after creation to protect existing orders.
           </p>
+          <div className="mt-3 flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3">
+            <div>
+              <p className="text-xs font-medium text-gray-700">Hide remaining ticket count</p>
+              <p className="text-xs text-gray-400">Show "Available" instead of exact number</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setHideRemaining(!hideRemaining)}
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                hideRemaining ? "bg-brand" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  hideRemaining ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Promo Codes */}
@@ -440,31 +459,6 @@ export default function EditEventPage() {
               No promo codes yet. Add one above to offer discounts.
             </p>
           )}
-        </div>
-
-        {/* Hide Remaining Tickets */}
-        <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/50 p-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700">
-              Hide remaining ticket count
-            </label>
-            <p className="text-xs text-gray-400">
-              Buyers will see "Available" instead of the exact number remaining
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setHideRemaining(!hideRemaining)}
-            className={`relative h-6 w-11 rounded-full transition-colors ${
-              hideRemaining ? "bg-brand" : "bg-gray-300"
-            }`}
-          >
-            <span
-              className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                hideRemaining ? "translate-x-5" : ""
-              }`}
-            />
-          </button>
         </div>
 
         {/* Affiliate Program */}
