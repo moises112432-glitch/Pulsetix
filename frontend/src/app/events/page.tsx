@@ -215,28 +215,38 @@ export default function EventsPage() {
                 <Link
                   key={event.id}
                   href={`/events/${event.id}`}
-                  className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all hover:border-gray-200 hover:shadow-lg hover:shadow-gray-100"
+                  className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:border-gray-200 hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1"
                 >
-                  <div className="relative h-48 bg-gradient-to-br from-brand-50 to-brand-light/20">
+                  <div className="relative h-48 overflow-hidden bg-gradient-to-br from-brand-50 to-purple-100">
                     {event.cover_image ? (
-                      <img
-                        src={imageUrl(event.cover_image)}
-                        alt={event.title}
-                        className="h-full w-full object-cover"
-                      />
+                      <>
+                        <img
+                          src={imageUrl(event.cover_image)}
+                          alt={event.title}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                      </>
                     ) : (
-                      <div className="flex h-full items-center justify-center text-5xl opacity-50">
-                        🎪
+                      <div className="flex h-full items-center justify-center">
+                        <span className="text-5xl opacity-30 transition-transform duration-500 group-hover:scale-110">🎪</span>
                       </div>
                     )}
-                    <div className="absolute left-4 top-4 flex flex-col items-center rounded-xl bg-white/90 px-3 py-1.5 backdrop-blur-sm">
-                      <span className="text-xs font-bold text-brand">
+                    <div className="absolute left-3 top-3 flex flex-col items-center rounded-xl bg-white/90 px-3 py-1.5 shadow-sm backdrop-blur-sm">
+                      <span className="text-[10px] font-bold text-brand">
                         {month}
                       </span>
                       <span className="text-lg font-bold leading-tight">
                         {day}
                       </span>
                     </div>
+                    {event.location && event.cover_image && (
+                      <div className="absolute bottom-3 left-3 rounded-full bg-black/50 px-3 py-1 backdrop-blur-sm">
+                        <p className="text-xs font-medium text-white">
+                          📍 {event.location}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="p-5">
                     <h2 className="text-lg font-semibold transition-colors group-hover:text-brand">
@@ -251,7 +261,7 @@ export default function EventsPage() {
                         minute: "2-digit",
                       })}
                     </p>
-                    {event.location && (
+                    {event.location && !event.cover_image && (
                       <p className="mt-1 flex items-center gap-1 text-sm text-gray-400">
                         <span>📍</span> {event.location}
                       </p>
