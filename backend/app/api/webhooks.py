@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.models.promoter import Commission, CommissionStatus
 from app.models.ticket import Order, OrderStatus, Ticket, TicketType
 from app.services.email import send_order_confirmation
 
@@ -54,6 +55,18 @@ async def stripe_webhook(
             )
             tt = tt_result.scalar_one()
             tt.quantity_sold += 1
+
+        # Create commission if order came through a promoter referral
+        if order.promoter_id and float(order.total) > 0:
+            event = order.event
+            if event.affiliate_commission_percent:
+                commission_amount = round(float(order.total) * float(event.affiliate_commission_percent) / 100, 2)
+                db.add(Commission(
+                    promoter_id=order.promoter_id,
+                    order_id=order.id,
+                    amount=commission_amount,
+                    status=CommissionStatus.pending,
+                ))
 
         await db.commit()
 

@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.event import Event
 from app.models.promo import PromoCode
+from app.models.promoter import Promoter
 from app.models.ticket import Order, OrderStatus, Ticket, TicketType
 from app.models.user import User
 from app.schemas.order import CheckoutRequest, CheckoutResponse, OrderResponse, TicketResponse
@@ -51,6 +52,17 @@ async def create_checkout(
             raise HTTPException(status_code=400, detail="This promo code has been fully redeemed")
         discount_percent = float(promo.discount_percent)
 
+    # Resolve referral code if provided
+    promoter: Promoter | None = None
+    if body.ref:
+        ref_result = await db.execute(
+            select(Promoter).where(Promoter.referral_code == body.ref, Promoter.event_id == event.id)
+        )
+        promoter = ref_result.scalar_one_or_none()
+        # Prevent self-referral
+        if promoter and promoter.user_id == current_user.id:
+            promoter = None
+
     line_items = []
     total = 0.0
     ticket_plan: list[tuple[TicketType, int]] = []
@@ -84,6 +96,7 @@ async def create_checkout(
         event_id=event.id,
         total=total,
         status=OrderStatus.pending,
+        promoter_id=promoter.id if promoter else None,
     )
     db.add(order)
     await db.flush()

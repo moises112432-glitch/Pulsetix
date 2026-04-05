@@ -38,6 +38,7 @@ class Order(Base):
     stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), unique=True)
     total: Mapped[float] = mapped_column(Numeric(10, 2))
     status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.pending)
+    promoter_id: Mapped[int | None] = mapped_column(ForeignKey("promoters.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -45,6 +46,7 @@ class Order(Base):
     user: Mapped["User"] = relationship(back_populates="orders")
     event: Mapped["Event"] = relationship(back_populates="orders")
     tickets: Mapped[list["Ticket"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+    promoter: Mapped["Promoter | None"] = relationship()
 
 
 class Ticket(Base):
@@ -62,3 +64,4 @@ class Ticket(Base):
 
 from app.models.event import Event  # noqa: E402
 from app.models.user import User  # noqa: E402
+from app.models.promoter import Promoter  # noqa: E402

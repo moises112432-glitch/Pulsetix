@@ -33,6 +33,8 @@ export default function EditEventPage() {
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [newPromo, setNewPromo] = useState({ code: "", discount: "10", maxUses: "" });
   const [promoError, setPromoError] = useState("");
+  const [affiliateEnabled, setAffiliateEnabled] = useState(false);
+  const [affiliatePercent, setAffiliatePercent] = useState("10");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -50,6 +52,8 @@ export default function EditEventPage() {
         if (data.cover_image) {
           setCoverPreview(imageUrl(data.cover_image));
         }
+        setAffiliateEnabled(data.affiliate_enabled || false);
+        setAffiliatePercent(data.affiliate_commission_percent?.toString() || "10");
         setPromos(promosData);
       })
       .finally(() => setLoading(false));
@@ -79,6 +83,8 @@ export default function EditEventPage() {
           location: location || null,
           start_time: new Date(startTime).toISOString(),
           end_time: new Date(endTime).toISOString(),
+          affiliate_enabled: affiliateEnabled,
+          affiliate_commission_percent: affiliateEnabled ? parseFloat(affiliatePercent) : null,
         }),
       });
 
@@ -422,6 +428,51 @@ export default function EditEventPage() {
             <p className="text-xs text-gray-400">
               No promo codes yet. Add one above to offer discounts.
             </p>
+          )}
+        </div>
+
+        {/* Affiliate Program */}
+        <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-gray-700">
+                Affiliate Program
+              </label>
+              <p className="text-xs text-gray-400">
+                Let promoters earn commission by sharing your event
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAffiliateEnabled(!affiliateEnabled)}
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                affiliateEnabled ? "bg-purple-600" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  affiliateEnabled ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
+          {affiliateEnabled && (
+            <div className="mt-4">
+              <label className="mb-1 block text-xs text-gray-500">
+                Commission Rate (%)
+              </label>
+              <input
+                type="number"
+                value={affiliatePercent}
+                onChange={(e) => setAffiliatePercent(e.target.value)}
+                min="1"
+                max="50"
+                className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Promoters earn {affiliatePercent}% of each sale they refer
+              </p>
+            </div>
           )}
         </div>
 

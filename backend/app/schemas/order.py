@@ -12,6 +12,7 @@ class CheckoutRequest(BaseModel):
     event_id: int
     items: list[OrderItemRequest]
     promo_code: str | None = None
+    ref: str | None = None
 
 
 class CheckoutResponse(BaseModel):
