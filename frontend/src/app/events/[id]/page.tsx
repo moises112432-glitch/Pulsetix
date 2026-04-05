@@ -413,6 +413,8 @@ function EventDetailContent() {
                     <p className="mt-1 text-xs text-gray-400">
                       {isSoldOut
                         ? "No tickets remaining"
+                        : event.hide_remaining_tickets
+                        ? "Available"
                         : `${available} remaining`}
                     </p>
                   </div>

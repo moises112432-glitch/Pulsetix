@@ -30,6 +30,7 @@ class EventCreate(BaseModel):
     ticket_types: list[TicketTypeCreate] = []
     affiliate_mode: str = "off"
     affiliate_commission_percent: float | None = None
+    hide_remaining_tickets: bool = False
 
 
 class EventUpdate(BaseModel):
@@ -40,6 +41,7 @@ class EventUpdate(BaseModel):
     end_time: datetime | None = None
     affiliate_mode: str | None = None
     affiliate_commission_percent: float | None = None
+    hide_remaining_tickets: bool | None = None
 
 
 class EventResponse(BaseModel):
@@ -55,6 +57,7 @@ class EventResponse(BaseModel):
     status: str
     affiliate_mode: str = "off"
     affiliate_commission_percent: float | None = None
+    hide_remaining_tickets: bool = False
     created_at: datetime
     ticket_types: list[TicketTypeResponse] = []
 

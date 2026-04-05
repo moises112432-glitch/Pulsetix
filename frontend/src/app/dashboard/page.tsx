@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [createPromos, setCreatePromos] = useState<{ code: string; discount: string; maxUses: string }[]>([]);
   const [affiliateMode, setAffiliateMode] = useState<"off" | "public" | "private">("off");
   const [affiliatePercent, setAffiliatePercent] = useState("10");
+  const [hideRemaining, setHideRemaining] = useState(false);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [expandedStats, setExpandedStats] = useState<number | null>(null);
@@ -87,6 +88,7 @@ export default function DashboardPage() {
           })),
           affiliate_mode: affiliateMode,
           affiliate_commission_percent: affiliateMode !== "off" ? parseFloat(affiliatePercent) : null,
+          hide_remaining_tickets: hideRemaining,
         }),
       });
 
@@ -130,6 +132,7 @@ export default function DashboardPage() {
       setCreatePromos([]);
       setAffiliateMode("off");
       setAffiliatePercent("10");
+      setHideRemaining(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create event");
     } finally {
@@ -583,6 +586,31 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Hide Remaining Tickets */}
+            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Hide remaining ticket count
+                </label>
+                <p className="text-xs text-gray-400">
+                  Buyers will see "Available" instead of the exact number remaining
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHideRemaining(!hideRemaining)}
+                className={`relative h-6 w-11 rounded-full transition-colors ${
+                  hideRemaining ? "bg-brand" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    hideRemaining ? "translate-x-5" : ""
+                  }`}
+                />
+              </button>
             </div>
 
             {/* Affiliate Program */}

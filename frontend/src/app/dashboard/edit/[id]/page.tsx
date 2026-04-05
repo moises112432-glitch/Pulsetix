@@ -33,6 +33,7 @@ export default function EditEventPage() {
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [newPromo, setNewPromo] = useState({ code: "", discount: "10", maxUses: "" });
   const [promoError, setPromoError] = useState("");
+  const [hideRemaining, setHideRemaining] = useState(false);
   const [affiliateMode, setAffiliateMode] = useState<"off" | "public" | "private">("off");
   const [affiliatePercent, setAffiliatePercent] = useState("10");
   const [promoters, setPromoters] = useState<Promoter[]>([]);
@@ -59,6 +60,7 @@ export default function EditEventPage() {
         if (data.cover_image) {
           setCoverPreview(imageUrl(data.cover_image));
         }
+        setHideRemaining(data.hide_remaining_tickets || false);
         setAffiliateMode(data.affiliate_mode || "off");
         setAffiliatePercent(data.affiliate_commission_percent?.toString() || "10");
         setPromos(promosData);
@@ -91,6 +93,7 @@ export default function EditEventPage() {
           location: location || null,
           start_time: new Date(startTime).toISOString(),
           end_time: new Date(endTime).toISOString(),
+          hide_remaining_tickets: hideRemaining,
           affiliate_mode: affiliateMode,
           affiliate_commission_percent: affiliateMode !== "off" ? parseFloat(affiliatePercent) : null,
         }),
@@ -437,6 +440,31 @@ export default function EditEventPage() {
               No promo codes yet. Add one above to offer discounts.
             </p>
           )}
+        </div>
+
+        {/* Hide Remaining Tickets */}
+        <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+          <div>
+            <label className="text-sm font-medium text-gray-700">
+              Hide remaining ticket count
+            </label>
+            <p className="text-xs text-gray-400">
+              Buyers will see "Available" instead of the exact number remaining
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setHideRemaining(!hideRemaining)}
+            className={`relative h-6 w-11 rounded-full transition-colors ${
+              hideRemaining ? "bg-brand" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                hideRemaining ? "translate-x-5" : ""
+              }`}
+            />
+          </button>
         </div>
 
         {/* Affiliate Program */}

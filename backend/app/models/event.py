@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import ForeignKey, String, Text, Enum, DateTime, Numeric
+from sqlalchemy import Boolean, ForeignKey, String, Text, Enum, DateTime, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -33,6 +33,7 @@ class Event(Base):
     status: Mapped[EventStatus] = mapped_column(Enum(EventStatus), default=EventStatus.draft)
     affiliate_mode: Mapped[AffiliateMode] = mapped_column(Enum(AffiliateMode), default=AffiliateMode.off)
     affiliate_commission_percent: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    hide_remaining_tickets: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

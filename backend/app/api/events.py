@@ -35,6 +35,7 @@ async def create_event(
         status=EventStatus.draft,
         affiliate_mode=body.affiliate_mode,
         affiliate_commission_percent=body.affiliate_commission_percent,
+        hide_remaining_tickets=body.hide_remaining_tickets,
     )
     db.add(event)
     await db.flush()

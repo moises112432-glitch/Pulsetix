@@ -29,6 +29,7 @@ export interface Event {
   status: string;
   affiliate_mode: "off" | "public" | "private";
   affiliate_commission_percent: number | null;
+  hide_remaining_tickets: boolean;
   created_at: string;
   ticket_types: TicketType[];
 }
