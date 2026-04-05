@@ -231,6 +231,51 @@ async def upload_cover_image(
     return {"cover_image": event.cover_image}
 
 
+@router.get("/{event_id}/attendees")
+async def get_event_attendees(
+    event_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the full attendee list for an event (organizer only)."""
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = await db.execute(
+        select(Ticket)
+        .join(Order, Ticket.order_id == Order.id)
+        .where(Order.event_id == event_id, Order.status == OrderStatus.completed)
+        .options(
+            selectinload(Ticket.ticket_type),
+            selectinload(Ticket.order).selectinload(Order.user),
+            selectinload(Ticket.current_holder),
+        )
+        .order_by(Order.created_at.desc())
+    )
+    tickets = result.scalars().all()
+
+    attendees = []
+    for t in tickets:
+        holder = t.current_holder or t.order.user
+        attendees.append({
+            "ticket_id": t.id,
+            "order_id": t.order_id,
+            "name": holder.name,
+            "email": holder.email,
+            "ticket_type": t.ticket_type.name,
+            "ticket_price": float(t.ticket_type.price),
+            "checked_in": t.checked_in_at is not None,
+            "checked_in_at": t.checked_in_at.isoformat() if t.checked_in_at else None,
+            "purchased_at": t.order.created_at.isoformat(),
+            "transferred": t.current_holder_id is not None,
+        })
+
+    return attendees
+
+
 @router.get("/{event_id}/stats")
 async def get_event_stats(
     event_id: int,

@@ -107,6 +107,19 @@ export interface Promoter {
   total_commission: number;
 }
 
+export interface Attendee {
+  ticket_id: number;
+  order_id: number;
+  name: string;
+  email: string;
+  ticket_type: string;
+  ticket_price: number;
+  checked_in: boolean;
+  checked_in_at: string | null;
+  purchased_at: string;
+  transferred: boolean;
+}
+
 export interface Commission {
   id: number;
   promoter_id: number;

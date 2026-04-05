@@ -756,6 +756,12 @@ export default function DashboardPage() {
                       {event.status}
                     </span>
                     <Link
+                      href={`/dashboard/events/${event.id}/attendees`}
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      Attendees
+                    </Link>
+                    <Link
                       href={`/dashboard/edit/${event.id}`}
                       className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                     >
