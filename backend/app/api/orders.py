@@ -113,6 +113,20 @@ async def create_checkout(
     # Look up the organizer to check for Stripe Connect
     organizer = await db.get(User, event.organizer_id)
 
+    # Add service fee as a separate line item (buyer pays)
+    ticket_total_cents = sum(item["price_data"]["unit_amount"] * item["quantity"] for item in line_items)
+    fee_cents = int(ticket_total_cents * settings.APPLICATION_FEE_PERCENT / 100)
+
+    if fee_cents > 0:
+        line_items.append({
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": "Service Fee"},
+                "unit_amount": fee_cents,
+            },
+            "quantity": 1,
+        })
+
     session_params: dict = {
         "payment_method_types": ["card"],
         "line_items": line_items,
@@ -124,8 +138,6 @@ async def create_checkout(
 
     # Route payment to organizer's connected Stripe account
     if organizer and organizer.stripe_account_id and organizer.stripe_onboarding_complete:
-        total_cents = sum(item["price_data"]["unit_amount"] * item["quantity"] for item in line_items)
-        fee_cents = int(total_cents * settings.APPLICATION_FEE_PERCENT / 100)
         session_params["payment_intent_data"] = {
             "application_fee_amount": fee_cents,
             "transfer_data": {"destination": organizer.stripe_account_id},

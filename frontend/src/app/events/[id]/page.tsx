@@ -100,7 +100,9 @@ export default function EventDetailPage() {
   const discountAmount = promoApplied
     ? Math.round(subtotal * (promoApplied.discount / 100) * 100) / 100
     : 0;
-  const total = subtotal - discountAmount;
+  const afterDiscount = subtotal - discountAmount;
+  const serviceFee = Math.round(afterDiscount * 5) / 100;
+  const total = afterDiscount + serviceFee;
 
   const hasSelection = Object.values(quantities).some((q) => q > 0);
 
@@ -470,6 +472,12 @@ export default function EventDetailPage() {
                 <div className="flex items-center justify-between text-sm text-green-600">
                   <span>Discount ({promoApplied.discount}%)</span>
                   <span>-${discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {serviceFee > 0 && (
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <span>Service Fee</span>
+                  <span>${serviceFee.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between">
