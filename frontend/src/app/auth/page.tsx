@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import GoogleSignIn from "@/components/GoogleSignIn";
 
 export default function AuthPage() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -28,7 +31,7 @@ export default function AuthPage() {
       });
 
       localStorage.setItem("token", data.access_token);
-      window.location.href = "/dashboard";
+      window.location.href = redirect || "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
@@ -53,7 +56,7 @@ export default function AuthPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <GoogleSignIn />
+          <GoogleSignIn redirectUrl={redirect} />
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">

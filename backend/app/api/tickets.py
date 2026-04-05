@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.event import Event
-from app.models.ticket import Order, OrderStatus, Ticket, TicketType
+from app.models.ticket import Order, OrderStatus, Ticket, TicketTransfer, TicketType, TransferStatus
 from app.models.user import User
 from app.schemas.event import TicketTypeCreate, TicketTypeResponse
 
@@ -56,6 +56,7 @@ async def check_in_ticket(
             selectinload(Ticket.ticket_type),
             selectinload(Ticket.order).selectinload(Order.event),
             selectinload(Ticket.order).selectinload(Order.user),
+            selectinload(Ticket.current_holder),
         )
     )
     ticket = result.scalar_one_or_none()
@@ -80,11 +81,12 @@ async def check_in_ticket(
     ticket.checked_in_at = datetime.now(timezone.utc)
     await db.commit()
 
+    holder = ticket.current_holder or ticket.order.user
     return {
         "status": "success",
         "ticket_id": ticket.id,
-        "attendee_name": ticket.order.user.name,
-        "attendee_email": ticket.order.user.email,
+        "attendee_name": holder.name,
+        "attendee_email": holder.email,
         "ticket_type": ticket.ticket_type.name,
         "event_title": ticket.order.event.title,
         "checked_in_at": ticket.checked_in_at.isoformat(),
@@ -135,11 +137,24 @@ async def get_ticket_detail(
             selectinload(Ticket.ticket_type),
             selectinload(Ticket.order).selectinload(Order.event),
             selectinload(Ticket.order).selectinload(Order.user),
+            selectinload(Ticket.current_holder),
         )
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
+
+    holder = ticket.current_holder or ticket.order.user
+    owner_id = ticket.current_holder_id or ticket.order.user_id
+
+    # Check for pending transfer
+    pending = await db.execute(
+        select(TicketTransfer).where(
+            TicketTransfer.ticket_id == ticket.id,
+            TicketTransfer.status == TransferStatus.pending,
+        )
+    )
+    pending_transfer = pending.scalar_one_or_none()
 
     return {
         "ticket_id": ticket.id,
@@ -149,8 +164,12 @@ async def get_ticket_detail(
         "event_location": ticket.order.event.location,
         "event_start": ticket.order.event.start_time.isoformat(),
         "event_end": ticket.order.event.end_time.isoformat(),
-        "attendee_name": ticket.order.user.name,
+        "attendee_name": holder.name,
         "checked_in": ticket.checked_in_at is not None,
+        "is_owner": owner_id == current_user.id,
+        "transfer_pending": pending_transfer is not None,
+        "transfer_recipient": pending_transfer.recipient_email if pending_transfer else None,
+        "transfer_id": pending_transfer.id if pending_transfer else None,
     }
 
 
@@ -167,12 +186,14 @@ async def get_ticket_public(
             selectinload(Ticket.ticket_type),
             selectinload(Ticket.order).selectinload(Order.event),
             selectinload(Ticket.order).selectinload(Order.user),
+            selectinload(Ticket.current_holder),
         )
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
+    holder = ticket.current_holder or ticket.order.user
     return {
         "ticket_id": ticket.id,
         "qr_code_token": ticket.qr_code_token,
@@ -181,7 +202,7 @@ async def get_ticket_public(
         "event_location": ticket.order.event.location,
         "event_start": ticket.order.event.start_time.isoformat(),
         "event_end": ticket.order.event.end_time.isoformat(),
-        "attendee_name": ticket.order.user.name,
+        "attendee_name": holder.name,
         "checked_in": ticket.checked_in_at is not None,
     }
 

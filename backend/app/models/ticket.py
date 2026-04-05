@@ -14,6 +14,12 @@ class OrderStatus(str, enum.Enum):
     refunded = "refunded"
 
 
+class TransferStatus(str, enum.Enum):
+    pending = "pending"
+    claimed = "claimed"
+    cancelled = "cancelled"
+
+
 class TicketType(Base):
     __tablename__ = "ticket_types"
 
@@ -57,9 +63,31 @@ class Ticket(Base):
     ticket_type_id: Mapped[int] = mapped_column(ForeignKey("ticket_types.id", ondelete="CASCADE"))
     qr_code_token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    current_holder_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
     order: Mapped["Order"] = relationship(back_populates="tickets")
     ticket_type: Mapped["TicketType"] = relationship(back_populates="tickets")
+    current_holder: Mapped["User | None"] = relationship(foreign_keys=[current_holder_id])
+
+
+class TicketTransfer(Base):
+    __tablename__ = "ticket_transfers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"), index=True)
+    sender_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    recipient_email: Mapped[str] = mapped_column(String(255))
+    recipient_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    claim_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    status: Mapped[TransferStatus] = mapped_column(Enum(TransferStatus), default=TransferStatus.pending)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    ticket: Mapped["Ticket"] = relationship()
+    sender: Mapped["User"] = relationship(foreign_keys=[sender_id])
 
 
 from app.models.event import Event  # noqa: E402

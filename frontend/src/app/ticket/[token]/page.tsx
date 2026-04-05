@@ -14,20 +14,44 @@ interface TicketDetail {
   event_end: string;
   attendee_name: string;
   checked_in: boolean;
+  is_owner?: boolean;
+  transfer_pending?: boolean;
+  transfer_recipient?: string | null;
+  transfer_id?: number | null;
 }
 
 export default function TicketPage() {
   const params = useParams();
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferEmail, setTransferEmail] = useState("");
+  const [transferring, setTransferring] = useState(false);
+  const [transferSent, setTransferSent] = useState(false);
+  const [transferError, setTransferError] = useState("");
+  const [cancelling, setCancelling] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/tickets/${params.token}/public`)
-      .then((r) => r.ok ? r.json() : Promise.reject())
-      .then(setTicket)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    const token = localStorage.getItem("token");
+    // Try authenticated detail first (has is_owner), fall back to public
+    if (token) {
+      apiFetch<TicketDetail>(`/api/tickets/${params.token}/detail`)
+        .then(setTicket)
+        .catch(() => {
+          fetch(`${API_BASE}/api/tickets/${params.token}/public`)
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then(setTicket)
+            .catch(() => {});
+        })
+        .finally(() => setLoading(false));
+    } else {
+      fetch(`${API_BASE}/api/tickets/${params.token}/public`)
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then(setTicket)
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
   }, [params.token]);
 
   async function handleDownload() {
@@ -45,6 +69,38 @@ export default function TicketPage() {
     link.download = `ticket-${ticket?.qr_code_token.slice(0, 8)}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
+  }
+
+  async function handleTransfer() {
+    if (!ticket || !transferEmail.trim()) return;
+    setTransferring(true);
+    setTransferError("");
+    try {
+      await apiFetch("/api/transfers/initiate", {
+        method: "POST",
+        body: JSON.stringify({
+          ticket_id: ticket.ticket_id,
+          recipient_email: transferEmail,
+        }),
+      });
+      setTransferSent(true);
+      setShowTransfer(false);
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : "Failed to transfer");
+    } finally {
+      setTransferring(false);
+    }
+  }
+
+  async function handleCancelTransfer() {
+    if (!ticket?.transfer_id) return;
+    setCancelling(true);
+    try {
+      await apiFetch(`/api/transfers/${ticket.transfer_id}/cancel`, { method: "POST" });
+      setTicket({ ...ticket, transfer_pending: false, transfer_recipient: null, transfer_id: null });
+      setTransferSent(false);
+    } catch {}
+    setCancelling(false);
   }
 
   if (loading) {
@@ -134,6 +190,27 @@ export default function TicketPage() {
         </div>
       </div>
 
+      {/* Transfer Pending Banner */}
+      {(ticket.transfer_pending || transferSent) && (
+        <div className="w-full rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-yellow-800">Transfer Pending</p>
+              <p className="text-xs text-yellow-600">
+                Sent to {ticket.transfer_recipient || transferEmail}
+              </p>
+            </div>
+            <button
+              onClick={handleCancelTransfer}
+              disabled={cancelling}
+              className="rounded-lg border border-yellow-300 px-3 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-100 disabled:opacity-50"
+            >
+              {cancelling ? "..." : "Cancel"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex w-full gap-3">
         <button
@@ -142,7 +219,51 @@ export default function TicketPage() {
         >
           Download Ticket
         </button>
+        {ticket.is_owner && !ticket.checked_in && !ticket.transfer_pending && !transferSent && (
+          <button
+            onClick={() => setShowTransfer(true)}
+            className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-50"
+          >
+            Transfer
+          </button>
+        )}
       </div>
+
+      {/* Transfer Modal */}
+      {showTransfer && (
+        <div className="w-full rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold">Transfer Ticket</h3>
+          <p className="mb-4 text-xs text-gray-400">
+            Enter the email of the person you want to send this ticket to.
+            They'll receive an email with a link to claim it.
+          </p>
+          <input
+            type="email"
+            value={transferEmail}
+            onChange={(e) => setTransferEmail(e.target.value)}
+            placeholder="recipient@email.com"
+            className="mb-3 w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+          />
+          {transferError && (
+            <p className="mb-3 text-xs text-red-500">{transferError}</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={handleTransfer}
+              disabled={transferring || !transferEmail.trim()}
+              className="flex-1 rounded-lg bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+            >
+              {transferring ? "Sending..." : "Send Transfer"}
+            </button>
+            <button
+              onClick={() => { setShowTransfer(false); setTransferError(""); }}
+              className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <p className="text-center text-xs text-gray-400">
         Show this QR code at the event entrance for check-in

@@ -19,9 +19,10 @@ declare global {
 interface GoogleSignInProps {
   onSuccess?: () => void;
   becomeOrganizer?: boolean;
+  redirectUrl?: string | null;
 }
 
-export default function GoogleSignIn({ onSuccess, becomeOrganizer }: GoogleSignInProps) {
+export default function GoogleSignIn({ onSuccess, becomeOrganizer, redirectUrl }: GoogleSignInProps) {
   const buttonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,7 +69,7 @@ export default function GoogleSignIn({ onSuccess, becomeOrganizer }: GoogleSignI
       if (onSuccess) {
         onSuccess();
       } else {
-        window.location.href = becomeOrganizer ? "/dashboard" : "/events";
+        window.location.href = redirectUrl || (becomeOrganizer ? "/dashboard" : "/events");
       }
     } catch {
       // Silently fail — user can still use email/password
