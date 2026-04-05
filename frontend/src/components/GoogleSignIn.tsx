@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 
 declare global {
@@ -24,36 +24,11 @@ interface GoogleSignInProps {
 
 export default function GoogleSignIn({ onSuccess, becomeOrganizer, redirectUrl }: GoogleSignInProps) {
   const buttonRef = useRef<HTMLDivElement>(null);
+  const callbackRef = useRef<(response: { credential: string }) => void>();
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId || clientId === "your-google-client-id") return;
-
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.onload = () => {
-      window.google?.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleCredentialResponse,
-      });
-      if (buttonRef.current) {
-        window.google?.accounts.id.renderButton(buttonRef.current, {
-          theme: "outline",
-          size: "large",
-          width: buttonRef.current.offsetWidth,
-          text: "continue_with",
-        });
-      }
-    };
-    document.head.appendChild(script);
-
-    return () => {
-      document.head.removeChild(script);
-    };
-  }, []);
-
-  async function handleCredentialResponse(response: { credential: string }) {
+  const handleCredentialResponse = useCallback(async (response: { credential: string }) => {
+    setError("");
     try {
       const data = await apiFetch<{ access_token: string }>("/api/auth/google", {
         method: "POST",
@@ -71,10 +46,40 @@ export default function GoogleSignIn({ onSuccess, becomeOrganizer, redirectUrl }
       } else {
         window.location.href = redirectUrl || (becomeOrganizer ? "/dashboard" : "/events");
       }
-    } catch {
-      // Silently fail — user can still use email/password
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed");
     }
-  }
+  }, [becomeOrganizer, onSuccess, redirectUrl]);
+
+  callbackRef.current = handleCredentialResponse;
+
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId || clientId === "your-google-client-id") return;
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = () => {
+      window.google?.accounts.id.initialize({
+        client_id: clientId,
+        callback: (resp: { credential: string }) => callbackRef.current?.(resp),
+      });
+      if (buttonRef.current) {
+        window.google?.accounts.id.renderButton(buttonRef.current, {
+          theme: "outline",
+          size: "large",
+          width: buttonRef.current.offsetWidth,
+          text: "continue_with",
+        });
+      }
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   if (!clientId || clientId === "your-google-client-id") return null;
@@ -82,6 +87,11 @@ export default function GoogleSignIn({ onSuccess, becomeOrganizer, redirectUrl }
   return (
     <>
       <div ref={buttonRef} className="w-full [&>div]:w-full" />
+      {error && (
+        <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
+          {error}
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-gray-200" />
         <span className="text-xs text-gray-400">or</span>
