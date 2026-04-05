@@ -24,7 +24,9 @@ export default function OrdersPage() {
     const orderId = params.get("order_id");
 
     Promise.all([
-      apiFetch<Order[]>("/api/orders/").then(setOrders),
+      apiFetch<Order[]>("/api/orders/").then((data) =>
+        setOrders(data.filter((o) => o.status === "completed"))
+      ),
       apiFetch<FollowedOrganizer[]>("/api/users/me/following")
         .then(setFollowing)
         .catch(() => {}),

@@ -123,13 +123,12 @@ async def create_checkout(
     db.add(order)
     await db.flush()
 
-    # Create ticket records
+    # Create ticket records (QR codes assigned after payment in webhook)
     for tt, qty in ticket_plan:
         for _ in range(qty):
             db.add(Ticket(
                 order_id=order.id,
                 ticket_type_id=tt.id,
-                qr_code_token=uuid.uuid4().hex,
             ))
 
     # Look up the organizer to check for Stripe Connect

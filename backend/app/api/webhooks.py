@@ -1,4 +1,5 @@
 import secrets
+import uuid
 
 import stripe
 from fastapi import APIRouter, Header, HTTPException, Request, Depends
@@ -51,8 +52,9 @@ async def stripe_webhook(
 
         order.status = OrderStatus.completed
 
-        # Update sold quantities
+        # Assign QR codes and update sold quantities
         for ticket in order.tickets:
+            ticket.qr_code_token = uuid.uuid4().hex
             tt_result = await db.execute(
                 select(TicketType).where(TicketType.id == ticket.ticket_type_id)
             )

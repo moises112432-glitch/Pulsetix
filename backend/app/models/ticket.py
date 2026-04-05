@@ -61,7 +61,7 @@ class Ticket(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
     ticket_type_id: Mapped[int] = mapped_column(ForeignKey("ticket_types.id", ondelete="CASCADE"))
-    qr_code_token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    qr_code_token: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     current_holder_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
