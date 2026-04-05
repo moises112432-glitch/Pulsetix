@@ -14,55 +14,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
-@router.get("/{user_id}", response_model=UserResponse)
-async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-
-
-@router.post("/{user_id}/follow", status_code=201)
-async def follow_user(
-    user_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if user_id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot follow yourself")
-
-    target = await db.get(User, user_id)
-    if not target:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    existing = await db.execute(
-        select(Follow).where(Follow.follower_id == current_user.id, Follow.following_id == user_id)
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Already following")
-
-    db.add(Follow(follower_id=current_user.id, following_id=user_id))
-    await db.commit()
-    return {"detail": "Followed"}
-
-
-@router.delete("/{user_id}/follow", status_code=200)
-async def unfollow_user(
-    user_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(Follow).where(Follow.follower_id == current_user.id, Follow.following_id == user_id)
-    )
-    follow = result.scalar_one_or_none()
-    if not follow:
-        raise HTTPException(status_code=404, detail="Not following this user")
-
-    await db.delete(follow)
-    await db.commit()
-    return {"detail": "Unfollowed"}
-
+# ── /me routes must come before /{user_id} to avoid route conflicts ──
 
 @router.post("/me/become-organizer", response_model=UserResponse)
 async def become_organizer(
@@ -74,14 +26,6 @@ async def become_organizer(
         await db.commit()
         await db.refresh(current_user)
     return current_user
-
-
-@router.get("/{user_id}/followers/count")
-async def follower_count(user_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(func.count()).where(Follow.following_id == user_id)
-    )
-    return {"count": result.scalar()}
 
 
 @router.get("/me/following")
@@ -97,21 +41,6 @@ async def my_following(
     )
     users = result.scalars().all()
     return [{"id": u.id, "name": u.name, "avatar": u.avatar} for u in users]
-
-
-@router.get("/{user_id}/is-following")
-async def is_following(
-    user_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(Follow).where(
-            Follow.follower_id == current_user.id,
-            Follow.following_id == user_id,
-        )
-    )
-    return {"following": result.scalar_one_or_none() is not None}
 
 
 # ── Stripe Connect ──────────────────────────────────────────────
@@ -181,3 +110,78 @@ async def connect_dashboard_link(
 
     link = stripe.Account.create_login_link(current_user.stripe_account_id)
     return {"url": link.url}
+
+
+# ── Dynamic /{user_id} routes (must be AFTER /me/ routes) ──────
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.post("/{user_id}/follow", status_code=201)
+async def follow_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot follow yourself")
+
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing = await db.execute(
+        select(Follow).where(Follow.follower_id == current_user.id, Follow.following_id == user_id)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Already following")
+
+    db.add(Follow(follower_id=current_user.id, following_id=user_id))
+    await db.commit()
+    return {"detail": "Followed"}
+
+
+@router.delete("/{user_id}/follow", status_code=200)
+async def unfollow_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Follow).where(Follow.follower_id == current_user.id, Follow.following_id == user_id)
+    )
+    follow = result.scalar_one_or_none()
+    if not follow:
+        raise HTTPException(status_code=404, detail="Not following this user")
+
+    await db.delete(follow)
+    await db.commit()
+    return {"detail": "Unfollowed"}
+
+
+@router.get("/{user_id}/followers/count")
+async def follower_count(user_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(func.count()).where(Follow.following_id == user_id)
+    )
+    return {"count": result.scalar()}
+
+
+@router.get("/{user_id}/is-following")
+async def is_following(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Follow).where(
+            Follow.follower_id == current_user.id,
+            Follow.following_id == user_id,
+        )
+    )
+    return {"following": result.scalar_one_or_none() is not None}

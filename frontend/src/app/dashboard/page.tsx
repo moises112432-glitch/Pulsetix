@@ -147,7 +147,8 @@ export default function DashboardPage() {
         method: "POST",
       });
       window.location.href = data.url;
-    } catch {
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect Stripe");
       setConnectingStripe(false);
     }
   }
