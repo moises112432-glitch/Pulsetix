@@ -24,7 +24,7 @@ interface GoogleSignInProps {
 
 export default function GoogleSignIn({ onSuccess, becomeOrganizer, redirectUrl }: GoogleSignInProps) {
   const buttonRef = useRef<HTMLDivElement>(null);
-  const callbackRef = useRef<(response: { credential: string }) => void>();
+  const callbackRef = useRef<(response: { credential: string }) => void>(undefined);
   const [error, setError] = useState("");
 
   const handleCredentialResponse = useCallback(async (response: { credential: string }) => {
