@@ -168,6 +168,41 @@ async def publish_event(
     return event
 
 
+@router.delete("/{event_id}", status_code=200)
+async def delete_event(
+    event_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a draft event. Published events with orders cannot be deleted."""
+    result = await db.execute(
+        select(Event).where(Event.id == event_id).options(selectinload(Event.ticket_types))
+    )
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Only allow deleting drafts or events with no completed orders
+    if event.status == EventStatus.published:
+        order_count = await db.execute(
+            select(func.count(Order.id)).where(
+                Order.event_id == event_id,
+                Order.status == OrderStatus.completed,
+            )
+        )
+        if (order_count.scalar() or 0) > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete a published event with completed orders. Cancel it instead.",
+            )
+
+    await db.delete(event)
+    await db.commit()
+    return {"detail": "Event deleted"}
+
+
 @router.post("/{event_id}/duplicate", response_model=EventResponse)
 async def duplicate_event(
     event_id: int,

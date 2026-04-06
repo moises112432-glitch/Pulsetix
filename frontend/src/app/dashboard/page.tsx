@@ -178,6 +178,16 @@ export default function DashboardPage() {
     } catch {}
   }
 
+  async function handleDelete(eventId: number) {
+    if (!confirm("Are you sure you want to delete this event? This cannot be undone.")) return;
+    try {
+      await apiFetch(`/api/events/${eventId}`, { method: "DELETE" });
+      setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete");
+    }
+  }
+
   const [sendingReminder, setSendingReminder] = useState<number | null>(null);
   const [reminderResult, setReminderResult] = useState("");
 
@@ -818,6 +828,14 @@ export default function DashboardPage() {
                     >
                       Duplicate
                     </button>
+                    {event.status === "draft" && (
+                      <button
+                        onClick={() => handleDelete(event.id)}
+                        className="rounded-lg border border-red-100 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    )}
                     <button
                       onClick={() => toggleStats(event.id)}
                       className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
