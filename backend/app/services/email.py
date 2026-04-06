@@ -358,3 +358,73 @@ async def send_waitlist_notification(
         "subject": f"Tickets available for {event_title}! 🎉",
         "html": html,
     })
+
+
+async def send_refund_confirmation(
+    to_email: str,
+    user_name: str,
+    event_title: str,
+    refund_amount: float,
+) -> None:
+    """Send refund confirmation email."""
+    if not settings.RESEND_API_KEY:
+        return
+
+    resend.api_key = settings.RESEND_API_KEY
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 520px; margin: 0 auto; padding: 40px 20px;">
+
+        <div style="text-align: center; margin-bottom: 32px;">
+          <div style="display: inline-block; background: #7c3aed; color: white; width: 40px; height: 40px; line-height: 40px; border-radius: 10px; font-weight: bold; font-size: 18px;">P</div>
+          <p style="margin: 8px 0 0; font-size: 14px; color: #9ca3af;">PulseTix</p>
+        </div>
+
+        <div style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="background: linear-gradient(135deg, #6b7280, #4b5563); padding: 32px 24px; text-align: center;">
+            <p style="margin: 0 0 4px; font-size: 13px; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px;">Refund Processed</p>
+            <h1 style="margin: 0; color: white; font-size: 22px;">{event_title}</h1>
+          </div>
+
+          <div style="padding: 24px;">
+            <p style="margin: 0 0 20px; color: #374151; font-size: 15px; line-height: 1.6;">
+              Hey {user_name}, your refund of <strong>${refund_amount:.2f}</strong> has been processed.
+              It may take 5-10 business days to appear on your statement.
+            </p>
+
+            <div style="margin: 20px 0; padding: 16px; background: #f3f4f6; border-radius: 12px; text-align: center;">
+              <p style="margin: 0 0 4px; font-size: 12px; color: #6b7280;">Refund Amount</p>
+              <p style="margin: 0; font-size: 28px; font-weight: bold; color: #111827;">${refund_amount:.2f}</p>
+            </div>
+
+            <p style="margin: 0; color: #9ca3af; font-size: 13px; line-height: 1.6;">
+              Your tickets for this event have been cancelled. If you have any questions, please contact the event organizer.
+            </p>
+          </div>
+
+          <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #f3f4f6; text-align: center;">
+            <a href="{settings.FRONTEND_URL}/events"
+               style="color: #7c3aed; text-decoration: none; font-size: 13px; font-weight: 600;">
+              Browse more events
+            </a>
+          </div>
+        </div>
+
+        <p style="text-align: center; margin-top: 24px; font-size: 12px; color: #d1d5db;">
+          PulseTix &mdash; Create events that people love
+        </p>
+      </div>
+    </body>
+    </html>
+    """
+
+    resend.Emails.send({
+        "from": settings.FROM_EMAIL,
+        "to": [to_email],
+        "subject": f"Refund processed for {event_title}",
+        "html": html,
+    })

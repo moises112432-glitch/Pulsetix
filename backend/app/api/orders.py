@@ -214,6 +214,81 @@ async def get_order(
     return _serialize_order(order)
 
 
+@router.post("/{order_id}/refund")
+async def refund_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Refund an order. Allowed by the buyer or the event organizer."""
+    result = await db.execute(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.tickets).selectinload(Ticket.ticket_type),
+            selectinload(Order.event),
+        )
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Allow buyer or organizer to refund
+    is_buyer = order.user_id == current_user.id
+    is_organizer = order.event.organizer_id == current_user.id
+    if not is_buyer and not is_organizer:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if order.status != OrderStatus.completed:
+        raise HTTPException(status_code=400, detail="Only completed orders can be refunded")
+
+    # Check if any tickets are already checked in
+    checked_in = [t for t in order.tickets if t.checked_in_at is not None]
+    if checked_in:
+        raise HTTPException(status_code=400, detail="Cannot refund — some tickets have already been checked in")
+
+    # Process Stripe refund
+    if order.stripe_checkout_session_id:
+        try:
+            session = stripe.checkout.Session.retrieve(order.stripe_checkout_session_id)
+            if session.payment_intent:
+                stripe.Refund.create(payment_intent=session.payment_intent)
+        except stripe.error.StripeError as e:
+            raise HTTPException(status_code=400, detail=f"Stripe refund failed: {str(e)}")
+
+    # Update order status
+    order.status = OrderStatus.refunded
+
+    # Restore ticket quantities and invalidate tickets
+    for ticket in order.tickets:
+        ticket.qr_code_token = None
+        ticket.checked_in_at = None
+        tt_result = await db.execute(
+            select(TicketType).where(TicketType.id == ticket.ticket_type_id)
+        )
+        tt = tt_result.scalar_one()
+        if tt.quantity_sold > 0:
+            tt.quantity_sold -= 1
+
+    await db.commit()
+
+    # Send refund confirmation email
+    try:
+        buyer = await db.get(User, order.user_id)
+        if buyer:
+            from app.services.email import send_refund_confirmation
+            await send_refund_confirmation(
+                to_email=buyer.email,
+                user_name=buyer.name,
+                event_title=order.event.title,
+                refund_amount=float(order.total),
+            )
+    except Exception:
+        pass
+
+    return {"detail": "Order refunded successfully", "order_id": order.id}
+
+
 def _serialize_order(order: Order) -> dict:
     data = {
         "id": order.id,

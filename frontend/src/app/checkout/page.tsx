@@ -18,6 +18,8 @@ export default function OrdersPage() {
   const [shareEarn, setShareEarn] = useState<{ url: string; percent: number } | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const [refunding, setRefunding] = useState<number | null>(null);
+  const [refundError, setRefundError] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -59,6 +61,20 @@ export default function OrdersPage() {
     (o) => !o.event_start_time || new Date(o.event_start_time) < now
   );
   const displayOrders = tab === "upcoming" ? upcomingOrders : pastOrders;
+
+  async function handleRefund(orderId: number) {
+    if (!confirm("Are you sure you want to request a refund? Your tickets will be cancelled.")) return;
+    setRefunding(orderId);
+    setRefundError("");
+    try {
+      await apiFetch(`/api/orders/${orderId}/refund`, { method: "POST" });
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    } catch (err) {
+      setRefundError(err instanceof Error ? err.message : "Refund failed");
+    } finally {
+      setRefunding(null);
+    }
+  }
 
   async function handleUnfollow(userId: number) {
     try {
@@ -253,16 +269,30 @@ export default function OrdersPage() {
                     {order.tickets.length} ticket{order.tickets.length !== 1 ? "s" : ""}
                   </span>
                 </div>
-                <div className="text-right">
-                  <span className="text-sm font-semibold">${order.total.toFixed(2)}</span>
-                  <span className="ml-2 text-xs text-gray-400">
-                    {new Date(order.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
+                <div className="flex items-center gap-3">
+                  {!order.tickets.some((t) => t.checked_in_at) && (
+                    <button
+                      onClick={() => handleRefund(order.id)}
+                      disabled={refunding === order.id}
+                      className="rounded-lg border border-red-100 px-3 py-1 text-xs font-medium text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {refunding === order.id ? "Processing..." : "Refund"}
+                    </button>
+                  )}
+                  <div className="text-right">
+                    <span className="text-sm font-semibold">${order.total.toFixed(2)}</span>
+                    <span className="ml-2 text-xs text-gray-400">
+                      {new Date(order.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
                 </div>
               </div>
+              {refundError && refunding === null && (
+                <div className="bg-red-50 px-5 py-2 text-xs text-red-600">{refundError}</div>
+              )}
 
               {/* Tickets */}
               <div className="divide-y divide-gray-50 px-5">

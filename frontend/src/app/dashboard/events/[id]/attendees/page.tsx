@@ -18,6 +18,7 @@ export default function AttendeesPage() {
   const [filterType, setFilterType] = useState<string>("all");
   const [filterCheckin, setFilterCheckin] = useState<"all" | "checked_in" | "not_checked_in">("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
+  const [refunding, setRefunding] = useState<number | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -105,6 +106,18 @@ export default function AttendeesPage() {
     a.download = `attendees-${params.id}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleRefundOrder(orderId: number) {
+    if (!confirm("Refund this order? The attendee's tickets will be cancelled and payment refunded.")) return;
+    setRefunding(orderId);
+    try {
+      await apiFetch(`/api/orders/${orderId}/refund`, { method: "POST" });
+      setAttendees((prev) => prev.filter((a) => a.order_id !== orderId));
+    } catch {
+    } finally {
+      setRefunding(null);
+    }
   }
 
   if (authLoading || loading) {
@@ -255,6 +268,7 @@ export default function AttendeesPage() {
                   <th className="px-5 py-3">Ticket</th>
                   <th className="px-5 py-3">Purchased</th>
                   <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -309,6 +323,17 @@ export default function AttendeesPage() {
                           <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
                           Not Checked In
                         </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {!a.checked_in && (
+                        <button
+                          onClick={() => handleRefundOrder(a.order_id)}
+                          disabled={refunding === a.order_id}
+                          className="rounded-lg border border-red-100 px-3 py-1 text-xs font-medium text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {refunding === a.order_id ? "..." : "Refund"}
+                        </button>
                       )}
                     </td>
                   </tr>
