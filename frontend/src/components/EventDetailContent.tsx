@@ -545,14 +545,14 @@ function EventDetailContent() {
                 </div>
               ) : (
                 <>
-                  <div className="mb-4 rounded-xl bg-yellow-50 p-3 text-center">
-                    <p className="text-sm font-semibold text-yellow-800">This event is sold out</p>
-                    <p className="mt-0.5 text-xs text-yellow-600">
-                      Join the waitlist to be notified when tickets become available
+                  <div className="mb-4 rounded-xl bg-red-50 p-3 text-center">
+                    <p className="text-lg font-bold text-red-600">Sold Out</p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Enter your details to be notified when tickets become available
                     </p>
                     {waitlistCount > 0 && (
-                      <p className="mt-1 text-xs text-yellow-500">
-                        {waitlistCount} {waitlistCount === 1 ? "person" : "people"} waiting
+                      <p className="mt-1 text-xs text-gray-400">
+                        {waitlistCount} {waitlistCount === 1 ? "person is" : "people are"} on the waitlist
                       </p>
                     )}
                   </div>
@@ -577,9 +577,9 @@ function EventDetailContent() {
                     <button
                       onClick={handleJoinWaitlist}
                       disabled={waitlistSubmitting || !waitlistEmail.trim() || !waitlistName.trim()}
-                      className="w-full rounded-xl bg-yellow-500 py-3 text-sm font-semibold text-white shadow-lg shadow-yellow-500/25 transition-all hover:bg-yellow-600 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                      className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white shadow-lg shadow-brand/25 transition-all hover:bg-brand-dark hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
                     >
-                      {waitlistSubmitting ? "Joining..." : "Join Waitlist"}
+                      {waitlistSubmitting ? "Joining..." : "Notify Me When Available"}
                     </button>
                   </div>
                 </>
