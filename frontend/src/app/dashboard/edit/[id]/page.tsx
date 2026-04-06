@@ -213,6 +213,23 @@ export default function EditEventPage() {
             </svg>
             Attendees
           </button>
+          {event.status === "published" && (
+            <button
+              onClick={async () => {
+                if (!confirm("Send a reminder email to all attendees?")) return;
+                try {
+                  const data = await apiFetch<{ message: string }>(`/api/events/${event.id}/send-reminder`, { method: "POST" });
+                  alert(data.message);
+                } catch {}
+              }}
+              className="flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-600 hover:text-white"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Send Reminder
+            </button>
+          )}
           <span
             className={`rounded-full px-3 py-1 text-xs font-medium ${
               event.status === "published"

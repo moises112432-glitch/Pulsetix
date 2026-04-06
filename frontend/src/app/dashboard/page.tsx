@@ -170,6 +170,29 @@ export default function DashboardPage() {
     setEvents(updated);
   }
 
+  async function handleDuplicate(eventId: number) {
+    try {
+      await apiFetch(`/api/events/${eventId}/duplicate`, { method: "POST" });
+      const updated = await apiFetch<EventListItem[]>("/api/events/me/organized");
+      setEvents(updated);
+    } catch {}
+  }
+
+  const [sendingReminder, setSendingReminder] = useState<number | null>(null);
+  const [reminderResult, setReminderResult] = useState("");
+
+  async function handleSendReminder(eventId: number) {
+    if (!confirm("Send a reminder email to all attendees of this event?")) return;
+    setSendingReminder(eventId);
+    setReminderResult("");
+    try {
+      const data = await apiFetch<{ message: string }>(`/api/events/${eventId}/send-reminder`, { method: "POST" });
+      setReminderResult(data.message);
+      setTimeout(() => setReminderResult(""), 3000);
+    } catch {}
+    setSendingReminder(null);
+  }
+
   async function toggleStats(eventId: number) {
     if (expandedStats === eventId) {
       setExpandedStats(null);
@@ -702,6 +725,11 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
+          {reminderResult && (
+            <div className="rounded-lg bg-green-50 px-4 py-2.5 text-sm font-medium text-green-600">
+              {reminderResult}
+            </div>
+          )}
           {events.map((event) => {
             const eventStats = stats[event.id];
             const isExpanded = expandedStats === event.id;
@@ -775,6 +803,21 @@ export default function DashboardPage() {
                         Publish
                       </button>
                     )}
+                    {event.status === "published" && (
+                      <button
+                        onClick={() => handleSendReminder(event.id)}
+                        disabled={sendingReminder === event.id}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {sendingReminder === event.id ? "Sending..." : "Remind"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDuplicate(event.id)}
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      Duplicate
+                    </button>
                     <button
                       onClick={() => toggleStats(event.id)}
                       className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${

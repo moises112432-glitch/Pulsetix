@@ -168,6 +168,54 @@ async def publish_event(
     return event
 
 
+@router.post("/{event_id}/duplicate", response_model=EventResponse)
+async def duplicate_event(
+    event_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a copy of an event as a new draft."""
+    result = await db.execute(
+        select(Event).where(Event.id == event_id).options(selectinload(Event.ticket_types))
+    )
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    new_event = Event(
+        organizer_id=current_user.id,
+        title=f"{event.title} (Copy)",
+        description=event.description,
+        location=event.location,
+        start_time=event.start_time,
+        end_time=event.end_time,
+        cover_image=event.cover_image,
+        status=EventStatus.draft,
+        affiliate_mode=event.affiliate_mode,
+        affiliate_commission_percent=event.affiliate_commission_percent,
+        hide_remaining_tickets=event.hide_remaining_tickets,
+    )
+    db.add(new_event)
+    await db.flush()
+
+    for tt in event.ticket_types:
+        db.add(TicketType(
+            event_id=new_event.id,
+            name=tt.name,
+            price=tt.price,
+            quantity_total=tt.quantity_total,
+            tier_order=tt.tier_order,
+        ))
+
+    await db.commit()
+    result = await db.execute(
+        select(Event).where(Event.id == new_event.id).options(selectinload(Event.ticket_types))
+    )
+    return result.scalar_one()
+
+
 @router.get("/me/organized", response_model=list[EventListResponse])
 async def my_events(
     db: AsyncSession = Depends(get_db),
@@ -229,6 +277,61 @@ async def upload_cover_image(
     await db.commit()
 
     return {"cover_image": event.cover_image}
+
+
+@router.post("/{event_id}/send-reminder")
+async def send_event_reminder(
+    event_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send a reminder email to all attendees of an event."""
+    result = await db.execute(
+        select(Event).where(Event.id == event_id).options(selectinload(Event.ticket_types))
+    )
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Get all attendees with completed orders
+    from app.services.email import send_event_reminder_email
+
+    ticket_result = await db.execute(
+        select(Ticket)
+        .join(Order, Ticket.order_id == Order.id)
+        .where(Order.event_id == event_id, Order.status == OrderStatus.completed)
+        .options(
+            selectinload(Ticket.order).selectinload(Order.user),
+            selectinload(Ticket.current_holder),
+        )
+    )
+    tickets = ticket_result.scalars().all()
+
+    # Deduplicate by email
+    seen_emails: set[str] = set()
+    sent_count = 0
+    for t in tickets:
+        holder = t.current_holder or t.order.user
+        if holder.email in seen_emails:
+            continue
+        seen_emails.add(holder.email)
+        try:
+            await send_event_reminder_email(
+                to_email=holder.email,
+                name=holder.name,
+                event_title=event.title,
+                event_location=event.location or "TBD",
+                event_date=event.start_time.strftime("%A, %B %d, %Y"),
+                event_time=event.start_time.strftime("%I:%M %p"),
+                event_url=f"{settings.FRONTEND_URL}/events/{event_id}",
+            )
+            sent_count += 1
+        except Exception:
+            pass
+
+    return {"sent": sent_count, "message": f"Reminder sent to {sent_count} attendees"}
 
 
 @router.get("/{event_id}/attendees")

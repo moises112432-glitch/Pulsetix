@@ -428,3 +428,89 @@ async def send_refund_confirmation(
         "subject": f"Refund processed for {event_title}",
         "html": html,
     })
+
+
+async def send_event_reminder_email(
+    to_email: str,
+    name: str,
+    event_title: str,
+    event_location: str,
+    event_date: str,
+    event_time: str,
+    event_url: str,
+) -> None:
+    """Send event reminder email to attendee."""
+    if not settings.RESEND_API_KEY:
+        return
+
+    resend.api_key = settings.RESEND_API_KEY
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 520px; margin: 0 auto; padding: 40px 20px;">
+
+        <div style="text-align: center; margin-bottom: 32px;">
+          <div style="display: inline-block; background: #7c3aed; color: white; width: 40px; height: 40px; line-height: 40px; border-radius: 10px; font-weight: bold; font-size: 18px;">P</div>
+          <p style="margin: 8px 0 0; font-size: 14px; color: #9ca3af;">PulseTix</p>
+        </div>
+
+        <div style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="background: linear-gradient(135deg, #7c3aed, #6d28d9); padding: 32px 24px; text-align: center;">
+            <p style="margin: 0 0 4px; font-size: 13px; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px;">Reminder</p>
+            <h1 style="margin: 0; color: white; font-size: 22px;">{event_title}</h1>
+          </div>
+
+          <div style="padding: 24px;">
+            <p style="margin: 0 0 20px; color: #374151; font-size: 15px; line-height: 1.6;">
+              Hey {name}! Just a reminder that your event is coming up soon.
+            </p>
+
+            <div style="margin: 20px 0; padding: 16px; background: #f5f3ff; border-radius: 12px;">
+              <table style="width: 100%;">
+                <tr>
+                  <td style="padding: 6px 0; font-size: 13px; color: #6b7280; width: 80px;">Date</td>
+                  <td style="padding: 6px 0; font-size: 14px; font-weight: 600; color: #111827;">{event_date}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-size: 13px; color: #6b7280;">Time</td>
+                  <td style="padding: 6px 0; font-size: 14px; font-weight: 600; color: #111827;">{event_time}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-size: 13px; color: #6b7280;">Location</td>
+                  <td style="padding: 6px 0; font-size: 14px; font-weight: 600; color: #111827;">{event_location}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="text-align: center; margin: 24px 0 8px;">
+              <a href="{event_url}"
+                 style="display: inline-block; padding: 14px 32px; background: #7c3aed; color: white; border-radius: 12px; text-decoration: none; font-size: 15px; font-weight: 600;">
+                View Your Tickets
+              </a>
+            </div>
+          </div>
+
+          <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #f3f4f6; text-align: center;">
+            <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+              Don't forget to have your QR code ready for check-in!
+            </p>
+          </div>
+        </div>
+
+        <p style="text-align: center; margin-top: 24px; font-size: 12px; color: #d1d5db;">
+          PulseTix &mdash; Create events that people love
+        </p>
+      </div>
+    </body>
+    </html>
+    """
+
+    resend.Emails.send({
+        "from": settings.FROM_EMAIL,
+        "to": [to_email],
+        "subject": f"Reminder: {event_title} is coming up! 📅",
+        "html": html,
+    })
