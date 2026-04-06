@@ -185,7 +185,10 @@ async def list_my_orders(
     result = await db.execute(
         select(Order)
         .where(Order.user_id == current_user.id)
-        .options(selectinload(Order.tickets).selectinload(Ticket.ticket_type))
+        .options(
+            selectinload(Order.tickets).selectinload(Ticket.ticket_type),
+            selectinload(Order.event),
+        )
         .order_by(Order.created_at.desc())
     )
     orders = result.scalars().all()
@@ -212,7 +215,7 @@ async def get_order(
 
 
 def _serialize_order(order: Order) -> dict:
-    return {
+    data = {
         "id": order.id,
         "event_id": order.event_id,
         "total": float(order.total),
@@ -228,3 +231,12 @@ def _serialize_order(order: Order) -> dict:
             for t in order.tickets
         ],
     }
+    # Include event info if loaded
+    if hasattr(order, "event") and order.event:
+        data["event_title"] = order.event.title
+        data["event_location"] = order.event.location
+        data["event_start_time"] = order.event.start_time.isoformat()
+        data["event_end_time"] = order.event.end_time.isoformat()
+        data["event_cover_image"] = order.event.cover_image
+        data["event_organizer_id"] = order.event.organizer_id
+    return data

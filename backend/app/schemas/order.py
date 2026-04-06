@@ -36,5 +36,11 @@ class OrderResponse(BaseModel):
     status: str
     created_at: datetime
     tickets: list[TicketResponse] = []
+    event_title: str | None = None
+    event_location: str | None = None
+    event_start_time: str | None = None
+    event_end_time: str | None = None
+    event_cover_image: str | None = None
+    event_organizer_id: int | None = None
 
     model_config = {"from_attributes": True}

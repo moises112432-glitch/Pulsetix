@@ -60,6 +60,31 @@ export interface Order {
   status: string;
   created_at: string;
   tickets: Ticket[];
+  event_title?: string;
+  event_location?: string;
+  event_start_time?: string;
+  event_end_time?: string;
+  event_cover_image?: string;
+  event_organizer_id?: number;
+}
+
+export interface UserProfile {
+  id: number;
+  name: string;
+  avatar: string | null;
+  role: string;
+  member_since: string;
+  follower_count: number;
+  following_count: number;
+  total_events: number;
+  total_tickets_sold: number;
+  events: {
+    id: number;
+    title: string;
+    location: string | null;
+    start_time: string;
+    cover_image: string | null;
+  }[];
 }
 
 export interface PromoCode {

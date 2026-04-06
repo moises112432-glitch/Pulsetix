@@ -79,17 +79,22 @@ export default function Nav() {
                 My Tickets
               </Link>
               <div className="ml-2 flex items-center gap-3 border-l border-gray-200 pl-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium leading-tight">
-                    {user.name}
-                  </span>
-                  <span className="text-xs leading-tight text-gray-400">
-                    {isOrganizer ? "Organizer" : "Attendee"}
-                  </span>
-                </div>
+                <Link
+                  href={`/profile/${user.id}`}
+                  className="flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-gray-100"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium leading-tight">
+                      {user.name}
+                    </span>
+                    <span className="text-xs leading-tight text-gray-400">
+                      {isOrganizer ? "Organizer" : "Attendee"}
+                    </span>
+                  </div>
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="text-sm text-gray-400 transition-colors hover:text-gray-600"
@@ -174,7 +179,11 @@ export default function Nav() {
                 </Link>
 
                 <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-3">
-                  <div className="flex items-center gap-3">
+                  <Link
+                    href={`/profile/${user.id}`}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-3"
+                  >
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand">
                       {user.name.charAt(0).toUpperCase()}
                     </div>
@@ -184,7 +193,7 @@ export default function Nav() {
                         {isOrganizer ? "Organizer" : "Attendee"}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="rounded-lg px-4 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"

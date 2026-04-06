@@ -285,7 +285,7 @@ function EventDetailContent() {
         {/* Organizer */}
         {event.organizer_name && (
           <div className="mt-6 flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4">
-            <div className="flex items-center gap-3">
+            <a href={`/profile/${event.organizer_id}`} className="flex items-center gap-3 hover:opacity-80">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand">
                 {event.organizer_name.charAt(0).toUpperCase()}
               </div>
@@ -295,7 +295,7 @@ function EventDetailContent() {
                   {followerCount} follower{followerCount !== 1 ? "s" : ""}
                 </p>
               </div>
-            </div>
+            </a>
             <button
               onClick={handleFollow}
               disabled={followLoading}

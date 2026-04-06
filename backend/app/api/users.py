@@ -146,6 +146,74 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
     return user
 
 
+@router.get("/{user_id}/profile")
+async def get_user_profile(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Public profile with events and stats."""
+    from app.models.event import Event, EventStatus
+    from app.models.ticket import Order, OrderStatus
+
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Follower count
+    follower_result = await db.execute(
+        select(func.count()).where(Follow.following_id == user_id)
+    )
+    follower_count = follower_result.scalar() or 0
+
+    # Following count
+    following_result = await db.execute(
+        select(func.count()).where(Follow.follower_id == user_id)
+    )
+    following_count = following_result.scalar() or 0
+
+    # Public events organized (only published)
+    events_result = await db.execute(
+        select(Event)
+        .where(Event.organizer_id == user_id, Event.status == EventStatus.published)
+        .order_by(Event.start_time.desc())
+    )
+    events = events_result.scalars().all()
+
+    # Total tickets sold across all events (only for organizers)
+    total_tickets_sold = 0
+    total_events = len(events)
+    if events:
+        from app.models.ticket import Ticket
+        sold_result = await db.execute(
+            select(func.count(Ticket.id))
+            .join(Order, Ticket.order_id == Order.id)
+            .where(
+                Order.event_id.in_([e.id for e in events]),
+                Order.status == OrderStatus.completed,
+            )
+        )
+        total_tickets_sold = sold_result.scalar() or 0
+
+    return {
+        "id": user.id,
+        "name": user.name,
+        "avatar": user.avatar,
+        "role": user.role.value,
+        "member_since": user.created_at.isoformat(),
+        "follower_count": follower_count,
+        "following_count": following_count,
+        "total_events": total_events,
+        "total_tickets_sold": total_tickets_sold,
+        "events": [
+            {
+                "id": e.id,
+                "title": e.title,
+                "location": e.location,
+                "start_time": e.start_time.isoformat(),
+                "cover_image": e.cover_image,
+            }
+            for e in events
+        ],
+    }
+
+
 @router.post("/{user_id}/follow", status_code=201)
 async def follow_user(
     user_id: int,
