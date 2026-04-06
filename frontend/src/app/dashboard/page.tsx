@@ -793,12 +793,14 @@ export default function DashboardPage() {
                     >
                       {event.status}
                     </span>
-                    <Link
-                      href={`/dashboard/events/${event.id}/attendees`}
-                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                    >
-                      Attendees
-                    </Link>
+                    {event.status !== "draft" && (
+                      <Link
+                        href={`/dashboard/events/${event.id}/attendees`}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        Attendees
+                      </Link>
+                    )}
                     <Link
                       href={`/dashboard/edit/${event.id}`}
                       className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -836,16 +838,18 @@ export default function DashboardPage() {
                         Delete
                       </button>
                     )}
-                    <button
-                      onClick={() => toggleStats(event.id)}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        isExpanded
-                          ? "border-brand bg-brand-50 text-brand"
-                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
-                      {isExpanded ? "Hide Stats" : "Stats"}
-                    </button>
+                    {event.status !== "draft" && (
+                      <button
+                        onClick={() => toggleStats(event.id)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          isExpanded
+                            ? "border-brand bg-brand-50 text-brand"
+                            : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {isExpanded ? "Hide Stats" : "Stats"}
+                      </button>
+                    )}
                   </div>
                 </div>
 
